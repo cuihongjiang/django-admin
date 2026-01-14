@@ -165,7 +165,9 @@ django-admin/
 **认证机制：**
 - 使用 JWT Token 认证（djangorestframework-simplejwt）
 - Token 存储在 Redis 中，支持快速验证和过期管理
-- Token 有效期：12小时（可配置）
+- Access Token 有效期：1小时（可配置）
+- Refresh Token 有效期：1天（可配置）
+- 支持 Token 自动轮换机制
 
 **授权机制：**
 - 白名单模式：配置在 `settings.WHITE_LIST`
@@ -312,9 +314,6 @@ ResponseUtils.error(msg, code)    # 错误响应
 # 自定义用户模型
 AUTH_USER_MODEL = 'JsAdmin.Users'
 
-# Token 有效期（秒）
-TOKEN_LIFETIME = 12 * 60 * 60
-
 # 权限缓存超时时间（秒）
 PERMISSION_CACHE_TIMEOUT = 3600
 
@@ -323,7 +322,7 @@ WHITE_LIST = ['/api/login/']
 
 # 接口日志配置
 API_LOG_ENABLE = True
-API_LOG_METHODS = ['POST', 'GET', 'DELETE', 'PUT']
+API_LOG_METHODS = ['POST', 'GET', 'DELETE', 'PUT', 'PATCH']
 
 # DEMO 模式
 DEMO = False
@@ -339,8 +338,11 @@ CACHES = {
 
 # JWT 配置
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),      # accessToken 1小时过期
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),      # refreshToken 1天过期
+    'ROTATE_REFRESH_TOKENS': True,                    # 启用 token 轮换
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': True,
     ...
 }
 
@@ -371,7 +373,7 @@ REST_FRAMEWORK = {
 ```python
 # JsAdmin/router.py
 api_router = DefaultRouter()
-api_router.register(r'login', LoginView, basename='login')
+api_router.register(r'login', LoginViewSet, basename='login')
 api_router.register(r'user', UserViewSet, basename='user')
 api_router.register(r'monitor', MonitorView, basename='monitor')
 # ...
@@ -407,15 +409,23 @@ URL 前缀：`/api/`
 
 ### 5.3 核心接口列表
 
-| 模块 | 接口路径 | 说明 |
-|------|---------|------|
-| 认证 | POST /api/login/ | 用户登录 |
-| 用户 | GET/POST/PUT/DELETE /api/user/ | 用户 CRUD |
-| 角色 | GET/POST/PUT/DELETE /api/role/ | 角色 CRUD |
-| 部门 | GET/POST/PUT/DELETE /api/dept/ | 部门 CRUD |
-| 菜单 | GET/POST/PUT/DELETE /api/menu/ | 菜单 CRUD |
-| 岗位 | GET/POST/PUT/DELETE /api/post/ | 岗位 CRUD |
-| 监控 | GET /api/monitor/ | 服务器监控 |
+| 模块 | 接口路径 | 方法 | 说明 |
+|------|---------|------|------|
+| 认证 | POST /api/login/ | POST | 用户登录 |
+| 认证 | POST /api/login/refresh/ | POST | 刷新 Token |
+| 用户 | /api/user/ | GET | 获取用户列表 |
+| 用户 | /api/user/ | POST | 创建用户 |
+| 用户 | /api/user/{id}/ | GET | 获取单个用户 |
+| 用户 | /api/user/{id}/ | PUT | 完整更新用户 |
+| 用户 | /api/user/{id}/ | PATCH | 部分更新用户 |
+| 用户 | /api/user/{id}/ | DELETE | 删除用户 |
+| 用户 | /api/user/{id}/set_password/ | POST | 修改密码（用户自己） |
+| 用户 | /api/user/{id}/reset_password/ | PUT | 重置密码（管理员） |
+| 角色 | /api/role/ | GET/POST/PUT/DELETE | 角色 CRUD |
+| 部门 | /api/dept/ | GET/POST/PUT/DELETE | 部门 CRUD |
+| 菜单 | /api/menu/ | GET/POST/PUT/DELETE | 菜单 CRUD |
+| 岗位 | /api/post/ | GET/POST/PUT/DELETE | 岗位 CRUD |
+| 监控 | /api/monitor/ | GET | 服务器监控 |
 
 ---
 
@@ -600,11 +610,17 @@ class UserViewSet(ModelViewSet, DataPermissionMixin):
 
 ## 12. 常见问题
 
-### 12.1 Token 无效
+### 12.1 Token 相关问题
 
+**问题**: Token 无效或过期
 - 检查 Redis 连接是否正常
-- 检查 Token 是否过期
-- 检查 Token 是否在 Redis 中
+- accessToken 过期使用 refreshToken 刷新
+- 检查 Token 是否在 Redis 缓存中
+
+**问题**: 刷新 Token 失败
+- refreshToken 也有过期时间（默认1天）
+- 确保传递正确的 refreshToken
+- 检查 SIMPLE_JWT 配置是否正确
 
 ### 12.2 数据权限不生效
 
@@ -632,9 +648,10 @@ class UserViewSet(ModelViewSet, DataPermissionMixin):
 
 | 版本 | 日期 | 说明 |
 |-----|------|------|
+| 1.1 | 2026-01-14 | 添加 Token 刷新接口，优化用户管理接口 |
 | 1.0 | 2026-01-13 | 初始版本，完整架构文档 |
 
 ---
 
 **文档维护者**: 崔宏江  
-**最后更新**: 2026-01-13
+**最后更新**: 2026-01-14

@@ -4,95 +4,118 @@
 # @FileName: user.py
 # @Software: PyCharm
 # -*- coding: utf-8 -*-
-from rest_framework.viewsets import ViewSet
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
 from JsAdmin.models import Users
 from JsAdmin.serializers.user_serializers import SchemaOut, SchemaIn
 from utils.pagination import MyPagination
 from utils.response_utils import ResponseUtils
-from rest_framework.decorators import action
+from utils.permission import IsAdminOrSuperuser, IsOwnerOrAdmin
 
-class UserViewSet(ViewSet):
+
+class UserViewSet(ModelViewSet):
+    """
+    用户管理视图集
+    提供用户的 CRUD 操作和密码管理
+    """
+    queryset = Users.objects.all()
+    serializer_class = SchemaIn
     pagination_class = MyPagination
 
-    def create(self, request):
-        # 1. 使用 data 参数初始化序列化器
-        user_serializer = SchemaIn(data=request.data)
+    def get_serializer_class(self):
+        """
+        根据操作类型返回不同的序列化器
+        读操作使用 SchemaOut，写操作使用 SchemaIn
+        """
+        if self.action in ['list', 'retrieve']:
+            return SchemaOut
+        return SchemaIn
 
-        # 2. 验证数据，如果失败则自动返回 400 错误
-        user_serializer.is_valid(raise_exception=True)
+    def perform_create(self, serializer):
+        """创建用户后的处理"""
+        serializer.save()
 
-        # 3. 调用 .save() 方法，它会自动调用序列化器的 .create() 方法
-        #    并返回新创建的用户实例
-        new_user = user_serializer.save()
+    def perform_update(self, serializer):
+        """更新用户后的处理"""
+        serializer.save()
 
-        # 4. 使用输出序列化器 (SchemaOut) 来格式化返回数据
-        #    这是一个好习惯，可以控制对外暴露的字段
-        output_serializer = SchemaOut(new_user)
-
-        # 5. 返回成功响应，状态码应为 201 Created
+    def create(self, request, *args, **kwargs):
+        """创建用户"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        output_serializer = SchemaOut(serializer.instance)
         return ResponseUtils.success(
             data=output_serializer.data,
-            msg="用户创建成功",
-            # 如果你的 ResponseUtils 支持自定义状态码，最好设置为 201
-            # status_code=status.HTTP_201_CREATED
+            msg="用户创建成功"
         )
 
-    def update(self, request, pk=None):
-        try:
-            # 1. 获取要更新的实例
-            instance = Users.objects.get(pk=pk)
-        except Users.DoesNotExist:
-            return ResponseUtils.error(msg="User not found", status_code=404)
+    def update(self, request, *args, **kwargs):
+        """更新用户"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        output_serializer = SchemaOut(serializer.instance)
+        return ResponseUtils.success(
+            data=output_serializer.data,
+            msg="用户更新成功"
+        )
 
-        # 2. 初始化序列化器，传入实例和要更新的数据
-        user_serializer = SchemaIn(instance, data=request.data, partial=True)
-
-        # 3. 验证数据
-        if user_serializer.is_valid():
-            # 4. 调用 .save() 方法，它会自动更新 instance 并返回更新后的实例
-            updated_user = user_serializer.save()
-
-            # 5. 使用输出序列化器序列化更新后的数据（这是一个好习惯）
-            output_serializer = SchemaOut(updated_user)
-
-            return ResponseUtils.success(data=output_serializer.data, msg="用户更新成功")
-        else:
-            # 如果验证失败，返回错误信息
-            return ResponseUtils.error( msg="数据验证失败", status_code=400)
-
-    @action(detail=True, methods=["DELETE"])
-    def delete_user(self, request, pk=None):
-        instance = Users.objects.all()
-        instance.delete()
+    def destroy(self, request, *args, **kwargs):
+        """删除用户"""
+        instance = self.get_object()
+        self.perform_destroy(instance)
         return ResponseUtils.success(msg="用户删除成功")
 
-    def retrieve(self, request, pk=None):
-        try:
-            instance = Users.objects.get(pk=pk)  # 通过pk获取单个用户
-            user_serializer = SchemaOut(instance)
-            return ResponseUtils.success(data=user_serializer.data)
-        except Users.DoesNotExist:
-            return ResponseUtils.error( "用户不存在", code=404,status_code=404)
+    def retrieve(self, request, *args, **kwargs):
+        """获取单个用户"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return ResponseUtils.success(data=serializer.data)
 
-    def list(self, request):
-        queryset = Users.objects.all()
-        user_serializer =SchemaOut(queryset, many=True)
-        return ResponseUtils.success(data=user_serializer.data)
+    def list(self, request, *args, **kwargs):
+        """获取用户列表"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return ResponseUtils.success(data=serializer.data)
 
-    @action(detail=True, methods=["POST"])
+    @action(detail=True, methods=["POST"], permission_classes=[IsOwnerOrAdmin])
     def set_password(self, request, pk=None):
-        instance = Users.objects.get(pk=pk)
-        data = request.data
-        if instance.id == data["id"]:
-            instance.set_password(data["password"])
-            instance.save()
-            return ResponseUtils.success(msg="密码修改成功")
-        else:
-            return ResponseUtils.permission_denied(msg="只能修改自己的密码")
+        """
+        修改密码（用户自己或管理员）
+        POST /api/user/{id}/set_password/
+        请求参数: {"password": "new_password"}
+        """
+        instance = self.get_object()
+        password = request.data.get("password")
+        
+        if not password:
+            return ResponseUtils.error(
+                msg="密码不能为空", 
+                code=400, 
+                status_code=400
+            )
 
-    @action(detail=True, methods=["PUT"])
-    def reset_password(self, request, pk=None):
-        instance = Users.objects.all()
-        instance.set_password("123456")
+        instance.set_password(password)
         instance.save()
-        return ResponseUtils.success(msg="密码重置成功")
+        return ResponseUtils.success(msg="密码修改成功")
+
+    @action(detail=True, methods=["PUT"], permission_classes=[IsAdminOrSuperuser])
+    def reset_password(self, request, pk=None):
+        """
+        重置密码（仅管理员）
+        PUT /api/user/{id}/reset_password/
+        将用户密码重置为 123456
+        """
+        instance = self.get_object()
+        default_password = "123456"
+        instance.set_password(default_password)
+        instance.save()
+        return ResponseUtils.success(
+            msg=f"密码已重置为: {default_password}"
+        )

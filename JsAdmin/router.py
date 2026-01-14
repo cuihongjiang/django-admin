@@ -4,14 +4,14 @@
 # @FileName: router.py
 # @Software: PyCharm
 # -*- coding: utf-8 -*-
-from JsAdmin.apis.login import LoginView
+from JsAdmin.apis.login import LoginViewSet
 from JsAdmin.apis.monitor import MonitorView
 from JsAdmin.apis.user import UserViewSet
 from rest_framework.routers import DefaultRouter
 
 api_router = DefaultRouter()
 # # 注册路由
-api_router.register(r'login', LoginView, basename='login')
+api_router.register(r'login', LoginViewSet, basename='login')
 api_router.register(r'monitor', MonitorView, basename='monitor')
 api_router.register(r'user', UserViewSet, basename='user')
 # api_router.register(r'department', dept_router, basename='department')

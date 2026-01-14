@@ -267,7 +267,7 @@ LOGGING = {
 
 # 接口日志记录
 API_LOG_ENABLE = True
-API_LOG_METHODS = ['POST', 'GET', 'DELETE', 'PUT']
+API_LOG_METHODS = ['POST', 'GET', 'DELETE', 'PUT', 'PATCH']
 API_MODEL_MAP = {}
 
 # 初始化需要执行的列表，用来初始化后执行
