@@ -1,4 +1,10 @@
 # ================================================= #
+# ************** 安全配置  ************** #
+# ================================================= #
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = 'django-insecure-92_gz8xs7le^0br9=3f$^2ll##y(34z0p^2-r56dos*e)fhi5%'
+
+# ================================================= #
 # ************** redis配置，无redis 可不进行配置  ************** #
 # ================================================= #
 REDIS_PASSWORD = ''
@@ -11,11 +17,14 @@ REDIS_URL = f'redis://:{REDIS_PASSWORD or ""}@{REDIS_HOST}:6379'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'django5',
+        'NAME': 'django_admin',
         'USER': 'root',
         'PASSWORD': 'root',
         'HOST': '127.0.0.1',
         'PORT': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
     }
 }
 

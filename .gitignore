@@ -136,7 +136,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-/JsAdmin/migrations/
 /tests/
 /.idea/
 /.idea/djangotutorial.iml
@@ -146,3 +145,4 @@ cython_debug/
 /.idea/inspectionProfiles/profiles_settings.xml
 /.idea/vcs.xml
 /.idea/workspace.xml
+**/migrations/

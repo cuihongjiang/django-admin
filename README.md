@@ -2,21 +2,25 @@
 
 ## 1. 项目概述
 
-这是一个基于 Django + Django REST Framework 构建的企业级后台管理系统，提供完整的 RBAC（基于角色的访问控制）权限管理、用户管理、部门管理、菜单管理等核心功能。
+这是一个基于 Django + Django REST Framework 构建的企业级后台管理系统，采用**多应用架构**，提供完整的 RBAC（基于角色的访问控制）权限管理、用户管理、部门管理、菜单管理等核心功能。
 
 ### 1.1 技术栈
 
-- **后端框架**: Django 5.1+
+- **运行环境**: Python 3.12+，使用 [uv](https://docs.astral.sh/uv/) 管理依赖
+- **后端框架**: Django 5.2+
 - **API框架**: Django REST Framework
-- **认证**: JWT (djangorestframework-simplejwt)
+- **认证**: JWT (djangorestframework-simplejwt) + Redis 黑名单/用户级失效水位线
 - **缓存**: Redis (django-redis)
-- **数据库**: 支持多种关系型数据库（配置在 env.py）
+- **数据库**: MySQL (mysqlclient，连接信息配置在 env.py)
+- **API 文档**: drf-spectacular (OpenAPI 3)
 - **日志**: Python logging + RotatingFileHandler
 - **文档处理**: openpyxl (Excel 导入导出)
 
 ### 1.2 系统特性
 
-- ✅ JWT Token 认证与授权
+- ✅ 多应用架构（6 个独立 Django 应用，职责清晰）
+- ✅ JWT Token 认证与授权（accessToken/refreshToken 双 token + 轮换）
+- ✅ Token 主动吊销：注销当前端（Redis 黑名单）、全端下线（用户级失效水位线）
 - ✅ RBAC 权限控制（角色-菜单-按钮）
 - ✅ 细粒度数据权限（本人/本部门/本部门及子部门/自定义/全部）
 - ✅ 操作日志与登录日志自动记录
@@ -31,75 +35,134 @@
 
 ```
 django-admin/
-├── JsAdmin/                    # 核心应用模块
-│   ├── apis/                   # API 视图层
-│   │   ├── data_dict/         # 数据字典相关接口
-│   │   ├── log/               # 日志相关接口
-│   │   ├── button.py          # 按钮权限接口
-│   │   ├── dept.py            # 部门管理接口
-│   │   ├── file.py            # 文件管理接口
-│   │   ├── login.py           # 登录认证接口
-│   │   ├── menu.py            # 菜单管理接口
-│   │   ├── menu_button.py     # 菜单按钮接口
-│   │   ├── menu_column.py     # 菜单列权限接口
-│   │   ├── monitor.py         # 系统监控接口
-│   │   ├── post.py            # 岗位管理接口
-│   │   ├── role.py            # 角色管理接口
-│   │   └── user.py            # 用户管理接口
-│   ├── management/commands/   # Django 自定义管理命令
-│   │   ├── generator.py       # 代码生成器命令
-│   │   ├── init.py            # 项目初始化命令
-│   │   └── init_area.py       # 地区数据初始化
-│   ├── serializers/           # 序列化器
-│   │   ├── login_serializer.py   # 登录序列化
-│   │   └── user_serializers.py   # 用户序列化
-│   ├── models.py              # 数据模型定义
-│   ├── router.py              # API 路由注册
-│   ├── initialize.py          # 数据初始化脚本
-│   └── apps.py                # 应用配置
+├── apps/                          # 业务应用模块（多应用架构）
+│   ├── system/                    # 系统管理应用
+│   │   ├── models/                # 数据模型（按业务域拆分）
+│   │   │   ├── __init__.py        # 汇总导出所有模型
+│   │   │   ├── system.py          # 用户/部门/岗位/角色/菜单/按钮等
+│   │   │   ├── area.py            # 地区模型
+│   │   │   ├── config.py          # 系统配置/接口白名单
+│   │   │   └── generator.py       # 代码生成器模板
+│   │   ├── apis/                  # API 视图
+│   │   │   ├── user.py            # 用户管理
+│   │   │   ├── role.py            # 角色管理
+│   │   │   ├── dept.py            # 部门管理
+│   │   │   ├── post.py            # 岗位管理
+│   │   │   ├── menu.py            # 菜单管理
+│   │   │   ├── menu_button.py     # 菜单按钮权限
+│   │   │   ├── menu_column.py     # 菜单列权限
+│   │   │   └── button.py          # 权限标识
+│   │   ├── serializers/           # 序列化器
+│   │   │   ├── __init__.py        # 汇总导出
+│   │   │   └── user.py            # 用户序列化器（读写分离）
+│   │   ├── management/commands/   # 管理命令
+│   │   │   ├── init.py            # 项目初始化
+│   │   │   ├── init_area.py       # 地区数据初始化
+│   │   │   └── generator.py       # 代码生成器
+│   │   ├── utils/                 # 系统管理特有工具
+│   │   │   ├── permissions.py     # 数据权限 Mixin + get_dept
+│   │   │   └── core_initialize.py # 初始化基类
+│   │   ├── initialize.py          # 初始化数据脚本
+│   │   ├── migrations/            # 数据库迁移
+│   │   └── apps.py                # 应用配置
+│   │
+│   ├── auth/                      # 认证登录应用
+│   │   ├── apis/
+│   │   │   └── login.py           # 登录/刷新/注销接口
+│   │   ├── serializers.py         # 登录序列化器
+│   │   └── apps.py                # 应用配置（label=jsauth，避免冲突）
+│   │
+│   ├── data_dict/                 # 数据字典应用
+│   │   ├── models.py              # 字典/字典项/分类字典模型
+│   │   ├── apis/                  # 字典/字典项/分类字典接口
+│   │   ├── serializers.py         # 字典序列化器
+│   │   ├── migrations/
+│   │   └── apps.py
+│   │
+│   ├── log/                       # 日志应用
+│   │   ├── models.py              # 操作日志/登录日志模型
+│   │   ├── apis/                  # 日志查询/删除接口（只读）
+│   │   ├── serializers.py         # 日志序列化器
+│   │   ├── migrations/
+│   │   └── apps.py
+│   │
+│   ├── file/                      # 文件管理应用
+│   │   ├── models.py              # 文件模型（含 media_file_name）
+│   │   ├── apis/
+│   │   │   └── file.py            # 文件上传（md5秒传）/下载/预览
+│   │   ├── serializers.py         # 文件序列化器
+│   │   ├── migrations/
+│   │   └── apps.py
+│   │
+│   ├── monitor/                   # 系统监控应用（无模型）
+│   │   ├── apis/
+│   │   │   └── monitor.py         # 服务器监控接口
+│   │   ├── utils/                 # 监控工具
+│   │   │   └── system.py          # 系统信息获取
+│   │   └── apps.py
+│   │
+│   ├── router.py                  # API 路由注册（聚合所有 ViewSet）
+│   └── __init__.py
 │
-├── manageSys/                 # 项目配置目录
-│   ├── conf/                  # 配置文件
-│   │   └── env.py            # 环境变量配置
-│   ├── settings.py           # Django 核心配置
-│   ├── urls.py               # 根 URL 配置
-│   ├── wsgi.py               # WSGI 入口
-│   └── asgi.py               # ASGI 入口
+├── manageSys/                     # 项目配置目录
+│   ├── conf/                      # 分块配置
+│   │   ├── env.py                 # 环境配置（SECRET_KEY、数据库、Redis 等）
+│   │   ├── drf.py                 # DRF / JWT / API 文档配置
+│   │   ├── cache.py               # Redis 缓存配置
+│   │   └── log.py                 # 日志配置
+│   ├── settings.py                # Django 核心配置（聚合 conf 分块配置）
+│   ├── urls.py                    # 根 URL 配置
+│   ├── wsgi.py                    # WSGI 入口
+│   └── asgi.py                    # ASGI 入口
 │
-├── utils/                     # 工具模块
-│   ├── server/               # 服务器监控工具
-│   │   ├── linux.py         # Linux 系统监控
-│   │   ├── windows.py       # Windows 系统监控
-│   │   ├── system.py        # 系统信息获取
-│   │   └── public.json      # 公共配置
-│   ├── core_initialize.py   # 核心初始化工具
-│   ├── js_crud.py           # CRUD 基础操作封装
-│   ├── list_to_tree.py      # 列表转树结构工具
-│   ├── middleware.py        # 中间件
-│   ├── mixins.py            # Mixin 类（数据权限）
-│   ├── models.py            # 基础模型类
-│   ├── pagination.py        # 分页配置
-│   ├── performance.py       # 性能监控
-│   ├── permission.py        # 权限控制
-│   ├── request_util.py      # 请求工具
-│   ├── response_utils.py    # 响应工具
-│   ├── system.py            # 系统工具
-│   └── usual.py             # 通用工具函数
+├── utils/                         # 公共工具模块（不依赖任何 app）
+│   ├── auth/                      # 认证与权限
+│   │   ├── authentication.py      # JWT + Redis 黑名单/水位线认证
+│   │   └── permission.py          # 权限控制类
+│   ├── web/                       # Web 基础设施
+│   │   ├── middleware.py          # 中间件（异常处理、操作日志、性能监控）
+│   │   ├── pagination.py          # 分页配置
+│   │   ├── request_util.py        # 请求工具（IP、UA、登录日志）
+│   │   ├── response_utils.py      # 统一响应工具
+│   │   ├── viewsets.py            # ViewSet 基类（CoreModelViewSet）
+│   │   └── serializers.py         # 序列化器基类（CoreModelSerializer）
+│   ├── db/                        # 数据层基础
+│   │   ├── models.py              # CoreModel 基类（审计字段）
+│   │   └── js_crud.py             # Excel 导入导出工具
+│   ├── common/                    # 通用工具
+│   │   ├── list_to_tree.py        # 列表转树结构
+│   │   └── usual.py               # 文件操作工具
+│   └── monitor/                   # 系统监控（平台实现）
+│       ├── system.py              # 系统信息获取入口
+│       └── server/                # 分平台实现（linux/windows）
 │
-├── docs/                      # 文档目录
-│   ├── ARCHITECTURE.md       # 原架构文档
-│   └── 项目架构文档.md        # 本文档
-│
-├── logs/                      # 日志文件目录（运行时生成）
-├── manage.py                  # Django 管理脚本
-└── .gitignore                # Git 忽略配置
+├── logs/                          # 日志文件目录（运行时生成）
+├── manage.py                      # Django 管理脚本
+├── pyproject.toml                 # 项目元信息与依赖声明（uv）
+├── uv.lock                        # 依赖锁定文件（uv）
+└── .gitignore                     # Git 忽略配置
 ```
 
 ---
 
 ## 3. 核心架构设计
 
-### 3.1 分层架构
+### 3.1 多应用架构
+
+项目采用 Django 多应用架构，将业务功能拆分为 6 个独立应用：
+
+| 应用 | 标签 | 职责 | 模型 |
+|------|------|------|------|
+| `apps.system` | `system` | 系统管理 | Users, Dept, Role, Post, Menu, MenuButton, MenuColumnField, Button, Area, ApiWhiteList, SystemConfig, GeneratorTemplate |
+| `apps.auth` | `jsauth` | 认证登录 | 无（仅视图和序列化器） |
+| `apps.data_dict` | `data_dict` | 数据字典 | Dict, DictItem, CategoryDict |
+| `apps.log` | `log` | 日志管理 | OperationLog, LoginLog |
+| `apps.file` | `file` | 文件管理 | File |
+| `apps.monitor` | `monitor` | 系统监控 | 无（仅视图） |
+
+> **注意**：`apps.auth` 使用 `label='jsauth'` 避免与 `django.contrib.auth` 的标签冲突。
+
+### 3.2 分层架构
 
 ```
 ┌─────────────────────────────────────────┐
@@ -110,27 +173,24 @@ django-admin/
 ┌─────────────────────────────────────────┐
 │         API 层（Django REST Framework）  │
 │  ┌─────────────────────────────────┐    │
-│  │  认证中间件（JWT）               │    │
-│  ├─────────────────────────────────┤    │
-│  │  权限中间件（RBAC + 数据权限）   │    │
-│  ├─────────────────────────────────┤    │
-│  │  日志中间件（操作记录）          │    │
-│  ├─────────────────────────────────┤    │
-│  │  性能监控中间件                  │    │
+│  │  中间件层                        │    │
+│  │  - ExceptionMiddleware          │    │
+│  │  - ApiLoggingMiddleware         │    │
+│  │  - PerformanceMiddleware        │    │
 │  └─────────────────────────────────┘    │
 │                                          │
 │  ┌─────────────────────────────────┐    │
-│  │  ViewSet（业务逻辑层）           │    │
-│  │  - LoginView                     │    │
-│  │  - UserViewSet                   │    │
-│  │  - RoleViewSet                   │    │
-│  │  - DeptViewSet                   │    │
-│  │  - MenuViewSet                   │    │
-│  │  - ...                           │    │
+│  │  ViewSet 层（业务逻辑）          │    │
+│  │  - LoginViewSet (auth)          │    │
+│  │  - UserViewSet (system)         │    │
+│  │  - RoleViewSet (system)         │    │
+│  │  - DictViewSet (data_dict)      │    │
+│  │  - FileViewSet (file)           │    │
+│  │  - ...                          │    │
 │  └─────────────────────────────────┘    │
 │                                          │
 │  ┌─────────────────────────────────┐    │
-│  │  Serializer（数据验证与转换）    │    │
+│  │  Serializer 层（数据验证）       │    │
 │  └─────────────────────────────────┘    │
 └─────────────────┬───────────────────────┘
                   │
@@ -138,15 +198,11 @@ django-admin/
 ┌─────────────────────────────────────────┐
 │         数据层（Django ORM）             │
 │  ┌─────────────────────────────────┐    │
-│  │  Model（数据模型）               │    │
-│  │  - Users                         │    │
-│  │  - Role                          │    │
-│  │  - Dept                          │    │
-│  │  - Menu                          │    │
-│  │  - MenuButton                    │    │
-│  │  - OperationLog                  │    │
-│  │  - LoginLog                      │    │
-│  │  - ...                           │    │
+│  │  Model 层（按 app 分组）         │    │
+│  │  - system.models                │    │
+│  │  - data_dict.models             │    │
+│  │  - log.models                   │    │
+│  │  - file.models                  │    │
 │  └─────────────────────────────────┘    │
 └─────────────────┬───────────────────────┘
                   │
@@ -154,32 +210,33 @@ django-admin/
          ↓                 ↓
     ┌─────────┐      ┌─────────┐
     │ 数据库  │      │  Redis  │
-    │(MySQL等)│      │  缓存   │
+    │ (MySQL) │      │  缓存   │
     └─────────┘      └─────────┘
 ```
 
-### 3.2 核心模块说明
+### 3.3 核心模块说明
 
-#### 3.2.1 认证与授权模块
+#### 3.3.1 认证与授权模块
 
 **认证机制：**
-- 使用 JWT Token 认证（djangorestframework-simplejwt）
-- Token 存储在 Redis 中，支持快速验证和过期管理
-- Access Token 有效期：1小时（可配置）
+- 使用 JWT Token 认证（djangorestframework-simplejwt），保持无状态本色
+- Access Token 有效期：15分钟（可配置）
 - Refresh Token 有效期：1天（可配置）
-- 支持 Token 自动轮换机制
+- 刷新时轮换 refreshToken，旧 refreshToken 自动拉黑
 
-**授权机制：**
-- 白名单模式：配置在 `settings.WHITE_LIST`
-- 基于 DRF 的自定义权限类 `WhitelistOrIsAuthenticated`
-- 支持 DEMO 模式（只读访问）
+**Token 主动吊销（JWT + Redis）：**
+- 单端注销：logout 时将 token 的 jti 写入 Redis 黑名单，TTL 为剩余有效期
+- 全端下线：禁用账号/改密码时记录用户级失效水位线，签发时间（iat）早于水位线的 token 全部拒绝
+- 每次请求只增加一次 Redis 往返（get_many 同查黑名单和水位线），miss 即放行（fail-open）
+- 多端登录互不影响：各端 token 独立，单端退出不影响其他端
 
 **关键代码位置：**
-- 认证视图：`JsAdmin/apis/login.py`
-- 权限类：`utils/permission.py`
-- 序列化器：`JsAdmin/serializers/login_serializer.py`
+- 认证类与吊销工具：`utils/auth/authentication.py`
+- 认证视图：`apps/auth/apis/login.py`
+- 权限类：`utils/auth/permission.py`
+- 序列化器：`apps/auth/serializers.py`
 
-#### 3.2.2 RBAC 权限控制模块
+#### 3.3.2 RBAC 权限控制模块
 
 **权限模型：**
 
@@ -200,16 +257,11 @@ Role（角色）
 - `3` - 全部数据权限
 - `4` - 自定义数据权限（关联指定部门）
 
-**实现机制：**
-- `DataPermissionMixin`：在 ViewSet 中混入，自动过滤查询集
-- 缓存优化：用户权限范围缓存在 Redis 中
-- 部门树查询：支持递归获取子部门
-
 **关键代码位置：**
-- 权限 Mixin：`utils/mixins.py`
-- 角色模型：`JsAdmin/models.py - Role`
+- 权限 Mixin：`apps/system/utils/permissions.py`（DataPermissionMixin + get_dept）
+- 角色模型：`apps/system/models/system.py - Role`
 
-#### 3.2.3 日志记录模块
+#### 3.3.3 日志记录模块
 
 **日志类型：**
 
@@ -225,16 +277,11 @@ Role（角色）
    - 文件位置：`logs/server.log`、`logs/error.log`
    - 使用 RotatingFileHandler，最大 100MB，保留 5 个备份
 
-**实现机制：**
-- 中间件自动拦截：`ApiLoggingMiddleware`
-- 异步写入数据库
-- 支持配置是否启用：`API_LOG_ENABLE`
-
 **关键代码位置：**
-- 日志中间件：`utils/middleware.py`
-- 日志模型：`JsAdmin/models.py - OperationLog, LoginLog`
+- 日志中间件：`utils/web/middleware.py`
+- 日志模型：`apps/log/models.py`
 
-#### 3.2.4 数据模型层
+#### 3.3.4 数据模型层
 
 **核心模型基类：CoreModel**
 
@@ -251,116 +298,95 @@ Role（角色）
 - sort: 显示排序
 ```
 
-**核心业务模型：**
-
-| 模型名称 | 说明 | 关键字段 |
-|---------|------|---------|
-| Users | 用户表（继承 AbstractUser） | username, email, mobile, dept, role, post |
-| Role | 角色表 | name, code, data_range, menu, permission, column |
-| Dept | 部门表（树形结构） | name, parent, owner, phone, status |
-| Post | 岗位表 | name, code, status |
-| Menu | 菜单表（树形结构） | title, path, component, parent, icon, type |
-| MenuButton | 菜单按钮权限表 | menu, name, code, api, method |
-| MenuColumnField | 菜单列权限表 | menu, name, code |
-| Dict | 数据字典表 | name, code, status |
-| DictItem | 字典项表 | label, value, dict |
-| CategoryDict | 分类字典表（树形） | label, value, code, parent |
-| OperationLog | 操作日志表 | request_path, request_method, request_username |
-| LoginLog | 登录日志表 | username, ip, browser, os, city |
-| File | 文件管理表 | name, url, size, md5sum |
-| Area | 地区表 | name, code, level, pcode |
-| ApiWhiteList | 接口白名单表 | url, method, enable_datasource |
-| SystemConfig | 系统配置表 | key, value, form_item_type |
-| GeneratorTemplate | 代码生成器模板表 | name, code, form_info, table_info |
-
 **关键代码位置：**
-- 基础模型：`utils/models.py`
-- 业务模型：`JsAdmin/models.py`
+- 基础模型：`utils/db/models.py`
+- 业务模型：`apps/<app>/models/`
 
-#### 3.2.5 工具模块
+#### 3.3.5 工具模块分层
 
-**CRUD 封装（js_crud.py）**
+**公共 utils（不依赖任何 app）：**
 
-提供标准化的 CRUD 操作：
-- `create()` - 创建
-- `batch_create()` - 批量创建
-- `update()` - 更新
-- `delete()` - 删除
-- `retrieve()` - 查询（支持数据权限过滤）
-- `export_data()` - 导出 Excel
-- `import_data()` - 导入 Excel
+| 模块 | 内容 |
+|------|------|
+| `utils/auth/` | JWT 认证 + 权限类 |
+| `utils/db/models.py` | CoreModel 基类 |
+| `utils/db/js_crud.py` | Excel 导入导出 |
+| `utils/web/` | 中间件、请求工具、响应、序列化器、视图集、分页 |
+| `utils/common/` | 树形转换、文件工具 |
+| `utils/monitor/` | 系统监控（平台实现） |
 
-**响应工具（response_utils.py）**
+**app 特有 utils：**
 
-统一的响应格式：
-```python
-ResponseUtils.success(data, msg)  # 成功响应
-ResponseUtils.error(msg, code)    # 错误响应
-```
-
-**其他工具：**
-- `list_to_tree.py` - 列表转树结构（菜单、部门等）
-- `usual.py` - 通用工具函数（获取用户信息、部门树等）
-- `system.py` - 系统信息获取
-- `performance.py` - 性能监控
+| 模块 | 内容 |
+|------|------|
+| `apps/system/utils/permissions.py` | DataPermissionMixin + get_dept |
+| `apps/system/utils/core_initialize.py` | 初始化基类 |
+| `apps/monitor/utils/system.py` | 系统监控（包装 utils.monitor） |
 
 ---
 
 ## 4. 配置说明
 
-### 4.1 核心配置（settings.py）
+### 4.1 配置组织方式
+
+`settings.py` 采用分块聚合模式，通过 `from .conf.xxx import *` 引入各分块配置：
+
+| 文件 | 职责 |
+|------|------|
+| `conf/env.py` | SECRET_KEY、数据库、Redis 连接、DEBUG/ALLOWED_HOSTS 等环境配置 |
+| `conf/drf.py` | REST_FRAMEWORK、SIMPLE_JWT、SPECTACULAR_SETTINGS |
+| `conf/cache.py` | Redis 缓存配置（CACHES） |
+| `conf/log.py` | 日志配置（LOGGING、API_LOG_ENABLE 等） |
+| `settings.py` | 应用/中间件/路由/模板/认证/国际化等 Django 标准配置 |
+
+### 4.2 核心配置示例
 
 ```python
-# 自定义用户模型
-AUTH_USER_MODEL = 'JsAdmin.Users'
+# settings.py —— 应用配置
+INSTALLED_APPS = [
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    # 多应用架构
+    'apps.system',
+    'apps.data_dict',
+    'apps.log',
+    'apps.file',
+    'apps.monitor',
+    'apps.auth',
+    'drf_spectacular',
+]
 
-# 权限缓存超时时间（秒）
-PERMISSION_CACHE_TIMEOUT = 3600
+# settings.py —— 自定义用户模型
+AUTH_USER_MODEL = 'system.Users'
 
-# 接口白名单
-WHITE_LIST = ['/api/login/']
+# settings.py —— 项目自定义配置
+PERMISSION_CACHE_TIMEOUT = 3600            # 权限缓存超时时间（秒）
+WHITE_LIST = ['/api/login/']               # 接口白名单
+DEMO = False                               # DEMO 模式
 
-# 接口日志配置
-API_LOG_ENABLE = True
-API_LOG_METHODS = ['POST', 'GET', 'DELETE', 'PUT', 'PATCH']
-
-# DEMO 模式
-DEMO = False
-
-# Redis 缓存配置
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f'{REDIS_URL}/1',
-        ...
-    }
-}
-
-# JWT 配置
+# conf/drf.py —— JWT 配置
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),      # accessToken 1小时过期
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),      # refreshToken 1天过期
-    'ROTATE_REFRESH_TOKENS': True,                    # 启用 token 轮换
-    'BLACKLIST_AFTER_ROTATION': False,
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # accessToken 15分钟过期
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # refreshToken 1天过期
+    'ROTATE_REFRESH_TOKENS': True,                   # 启用 token 轮换
+    'BLACKLIST_AFTER_ROTATION': False,               # 轮换拉黑由 Redis 黑名单实现
     'UPDATE_LAST_LOGIN': True,
     ...
 }
 
-# DRF 配置
+# conf/drf.py —— DRF 配置
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'utils.auth.authentication.RedisBlacklistJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'utils.permission.WhitelistOrIsAuthenticated'
+        'utils.auth.permission.WhitelistOrIsAuthenticated'
     ],
     ...
 }
 ```
-
-### 4.2 环境配置（conf/env.py）
-
-数据库连接、Redis 连接等敏感信息配置在此文件中（未纳入版本控制）。
 
 ---
 
@@ -368,13 +394,15 @@ REST_FRAMEWORK = {
 
 ### 5.1 路由注册
 
-所有 API 使用 DRF 的 `DefaultRouter` 统一注册：
+所有 API 使用 DRF 的 `DefaultRouter` 统一注册在 `apps/router.py`：
 
 ```python
-# JsAdmin/router.py
+# apps/router.py
 api_router = DefaultRouter()
 api_router.register(r'login', LoginViewSet, basename='login')
 api_router.register(r'user', UserViewSet, basename='user')
+api_router.register(r'role', RoleViewSet, basename='role')
+api_router.register(r'department', DeptViewSet, basename='department')
 api_router.register(r'monitor', MonitorView, basename='monitor')
 # ...
 ```
@@ -411,21 +439,31 @@ URL 前缀：`/api/`
 
 | 模块 | 接口路径 | 方法 | 说明 |
 |------|---------|------|------|
-| 认证 | POST /api/login/ | POST | 用户登录 |
-| 认证 | POST /api/login/refresh/ | POST | 刷新 Token |
-| 用户 | /api/user/ | GET | 获取用户列表 |
-| 用户 | /api/user/ | POST | 创建用户 |
-| 用户 | /api/user/{id}/ | GET | 获取单个用户 |
-| 用户 | /api/user/{id}/ | PUT | 完整更新用户 |
-| 用户 | /api/user/{id}/ | PATCH | 部分更新用户 |
-| 用户 | /api/user/{id}/ | DELETE | 删除用户 |
-| 用户 | /api/user/{id}/set_password/ | POST | 修改密码（用户自己） |
+| 认证 | /api/login/ | POST | 用户登录 |
+| 认证 | /api/login/refresh/ | POST | 刷新 Token |
+| 认证 | /api/login/logout/ | POST | 退出登录 |
+| 用户 | /api/user/ | GET/POST | 用户列表/创建 |
+| 用户 | /api/user/{id}/ | GET/PUT/DELETE | 用户详情/更新/删除 |
+| 用户 | /api/user/{id}/set_password/ | POST | 修改密码 |
 | 用户 | /api/user/{id}/reset_password/ | PUT | 重置密码（管理员） |
+| 用户 | /api/user/{id}/set_status/ | PUT | 启用/禁用账号 |
 | 角色 | /api/role/ | GET/POST/PUT/DELETE | 角色 CRUD |
-| 部门 | /api/dept/ | GET/POST/PUT/DELETE | 部门 CRUD |
-| 菜单 | /api/menu/ | GET/POST/PUT/DELETE | 菜单 CRUD |
-| 岗位 | /api/post/ | GET/POST/PUT/DELETE | 岗位 CRUD |
+| 角色 | /api/role/list/menu/ | GET | 菜单树（授权用） |
+| 部门 | /api/department/ | GET/POST/PUT/DELETE | 部门 CRUD |
+| 部门 | /api/department/list/tree/ | GET | 部门树 |
+| 岗位 | /api/position/ | GET/POST/PUT/DELETE | 岗位 CRUD |
+| 岗位 | /api/position/all/export/ | GET | 导出岗位 Excel |
+| 岗位 | /api/position/all/import/ | POST | 从 Excel 导入岗位 |
+| 菜单 | /api/menu/ | GET/POST/PUT/DELETE | 菜单 CRUD（列表返回树） |
+| 菜单 | /api/menu/route/tree/ | GET | 当前用户路由树 |
+| 字典 | /api/dictionary/ | GET/POST/PUT/DELETE | 字典 CRUD |
+| 字典项 | /api/dictitem/ | GET/POST/PUT/DELETE | 字典项 CRUD |
+| 字典项 | /api/dictitem/by/code/ | GET | 按字典编码查字典项 |
+| 文件 | /api/file/upload/ | POST | 上传文件（md5 秒传） |
+| 文件 | /api/file/{id}/download/ | GET | 下载文件 |
 | 监控 | /api/monitor/ | GET | 服务器监控 |
+
+> 所有资源均为标准 DRF ViewSet，同时提供 `all/list`（不分页全量）。列表接口带 `page` 参数时分页，否则返回全量。
 
 ---
 
@@ -448,7 +486,9 @@ MessagesMiddleware（消息）
     ↓
 XFrameOptionsMiddleware（XFrame）
     ↓
-ApiLoggingMiddleware（日志记录）
+ExceptionMiddleware（异常处理）
+    ↓
+ApiLoggingMiddleware（操作日志）
     ↓
 PerformanceMiddleware（性能监控）
     ↓
@@ -476,31 +516,41 @@ python manage.py init_area
 
 ### 7.2 初始化内容
 
-`JsAdmin/initialize.py` 包含以下初始化数据：
+`apps/system/initialize.py` 包含以下初始化数据：
 - 部门数据（示例公司组织架构）
 - 菜单数据（系统菜单树）
 - 菜单按钮数据（接口权限）
 - 角色数据
-- 字典数据
+- 字典数据（`apps/data_dict/models.py`）
 
 ---
 
-## 8. 部署建议
+## 8. 快速开始
 
 ### 8.1 开发环境
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+# 1. 克隆项目
+git clone <repository-url>
+cd django-admin
 
-# 数据库迁移
+# 2. 安装依赖
+uv sync
+
+# 3. 创建数据库
+mysql -u root -p -e "CREATE DATABASE django_admin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 4. 数据库迁移
 python manage.py makemigrations
 python manage.py migrate
 
-# 初始化数据
-python manage.py init -y
+# 5. 初始化数据
+python manage.py init
 
-# 启动开发服务器
+# 6. 创建超级管理员
+python manage.py createsuperuser
+
+# 7. 启动开发服务器
 python manage.py runserver 0.0.0.0:8000
 ```
 
@@ -509,12 +559,12 @@ python manage.py runserver 0.0.0.0:8000
 **推荐配置：**
 - Web 服务器：Nginx
 - WSGI 服务器：Gunicorn / uWSGI
-- 数据库：PostgreSQL / MySQL
+- 数据库：MySQL / PostgreSQL
 - 缓存：Redis
 - 进程管理：Supervisor / systemd
 
 **关键配置：**
-- 关闭 DEBUG 模式
+- 关闭 DEBUG 模式：`DEBUG = False`
 - 设置正确的 ALLOWED_HOSTS
 - 配置静态文件服务
 - 配置 HTTPS
@@ -526,8 +576,9 @@ python manage.py runserver 0.0.0.0:8000
 
 ### 9.1 认证安全
 
-- ✅ JWT Token 过期机制
-- ✅ Token 存储在 Redis，支持黑名单
+- ✅ JWT Token 过期机制（accessToken 15分钟 / refreshToken 1天）
+- ✅ Redis 黑名单：注销/轮换后旧 token 立即失效
+- ✅ 用户级失效水位线：禁用账号/改密码后全端立即下线
 - ✅ 密码加密存储（Django 内置）
 - ✅ CSRF 保护
 
@@ -542,7 +593,7 @@ python manage.py runserver 0.0.0.0:8000
 
 - ✅ SQL 注入防护（ORM）
 - ✅ XSS 防护
-- ✅ 敏感数据脱敏
+- ✅ 敏感数据脱敏（密码等字段）
 - ✅ 操作日志完整记录
 
 ### 9.4 HTTP 安全
@@ -555,80 +606,78 @@ X_FRAME_OPTIONS = 'DENY'
 
 ---
 
-## 10. 性能优化
+## 10. 扩展指南
 
-### 10.1 缓存策略
+### 10.1 添加新应用
 
-- ✅ 用户权限范围缓存（Redis）
-- ✅ Token 缓存（Redis）
-- ✅ 数据库查询优化（select_related / prefetch_related）
+```bash
+# 1. 创建应用目录结构
+mkdir -p apps/myapp/{models,apis,serializers,migrations}
 
-### 10.2 数据库优化
+# 2. 创建 apps.py
+class MyAppConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.myapp'
+    label = 'myapp'
+    verbose_name = '我的应用'
 
-- ✅ 合理使用索引（unique, db_index）
-- ✅ 外键约束关闭（db_constraint=False）减少数据库负担
-- ✅ 使用 CoreModel 统一审计字段
+# 3. 注册应用（settings.py）
+INSTALLED_APPS = [
+    ...
+    'apps.myapp',
+]
 
-### 10.3 日志优化
+# 4. 定义模型、视图、序列化器
+# 5. 在 apps/router.py 注册路由
+```
 
-- ✅ 日志文件轮转（100MB 自动切割）
-- ✅ 异步写入日志
-- ✅ 分级别记录（INFO/ERROR）
-
----
-
-## 11. 扩展指南
-
-### 11.1 添加新模块
-
-1. 在 `JsAdmin/models.py` 中定义模型（继承 CoreModel）
-2. 在 `JsAdmin/apis/` 中创建 ViewSet
-3. 在 `JsAdmin/router.py` 中注册路由
-4. 如需数据权限，混入 `DataPermissionMixin`
-
-### 11.2 添加新接口
+### 10.2 添加新接口
 
 ```python
 # 在对应的 ViewSet 中添加 action
 from rest_framework.decorators import action
 
-class UserViewSet(ModelViewSet, DataPermissionMixin):
+class UserViewSet(ModelViewSet):
     @action(detail=False, methods=['get'])
     def custom_action(self, request):
         # 业务逻辑
         return ResponseUtils.success(data)
 ```
 
-### 11.3 添加新权限
+### 10.3 添加数据权限
 
-1. 在菜单管理中创建菜单
-2. 在菜单按钮管理中添加接口权限
-3. 在角色管理中分配权限
-4. 系统自动根据角色过滤用户权限
+```python
+# 在 ViewSet 中混入 DataPermissionMixin
+from apps.system.utils.permissions import DataPermissionMixin
+
+class MyViewSet(DataPermissionMixin, ModelViewSet):
+    data_permission_field = 'belong_dept'  # 部门字段名
+    creator_field = 'creator_id'           # 创建者字段名
+    ...
+```
 
 ---
 
-## 12. 常见问题
+## 11. 常见问题
 
-### 12.1 Token 相关问题
+### 11.1 Token 相关问题
 
 **问题**: Token 无效或过期
-- 检查 Redis 连接是否正常
 - accessToken 过期使用 refreshToken 刷新
-- 检查 Token 是否在 Redis 缓存中
+- 若提示「token 已被吊销」：该 token 已被注销拉黑，或用户被禁用/改密码触发全端下线，需重新登录
+- 检查 Redis 连接是否正常（Redis 故障时吊销检查会 fail-open，不影响正常认证）
 
 **问题**: 刷新 Token 失败
 - refreshToken 也有过期时间（默认1天）
-- 确保传递正确的 refreshToken
-- 检查 SIMPLE_JWT 配置是否正确
+- 开启轮换后旧 refreshToken 已拉黑，必须使用最新一次返回的 refreshToken
 
-### 12.2 数据权限不生效
+### 11.2 数据权限不生效
 
 - 检查 ViewSet 是否混入 `DataPermissionMixin`
 - 检查用户角色的 `data_range` 配置
 - 检查缓存是否更新
 
-### 12.3 日志未记录
+### 11.3 日志未记录
 
 - 检查 `API_LOG_ENABLE` 是否开启
 - 检查请求方法是否在 `API_LOG_METHODS` 中
@@ -636,22 +685,26 @@ class UserViewSet(ModelViewSet, DataPermissionMixin):
 
 ---
 
-## 13. 参考资源
+## 12. 参考资源
 
 - Django 官方文档：https://docs.djangoproject.com/
 - Django REST Framework：https://www.django-rest-framework.org/
 - djangorestframework-simplejwt：https://django-rest-framework-simplejwt.readthedocs.io/
+- uv 包管理器：https://docs.astral.sh/uv/
 
 ---
 
-## 14. 版本历史
+## 13. 版本历史
 
 | 版本 | 日期 | 说明 |
 |-----|------|------|
+| 2.0 | 2026-07-31 | **多应用架构重构**：JsAdmin 拆分为 6 个独立 Django 应用（system/auth/data_dict/log/file/monitor）；utils 模块化重构（公共工具与业务工具分离）；数据库重命名为 django_admin |
+| 1.3 | 2026-07-31 | models.py 拆为 models/ 域包、serializers/ 改为域子包（与 apis/ 对齐） |
+| 1.2 | 2026-07-31 | 迁移 uv 依赖管理；配置拆分至 conf/ 分块；JWT + Redis 黑名单与用户级全端下线 |
 | 1.1 | 2026-01-14 | 添加 Token 刷新接口，优化用户管理接口 |
-| 1.0 | 2026-01-13 | 初始版本，完整架构文档 |
+| 1.0 | 2026-01-13 | 初始版本 |
 
 ---
 
-**文档维护者**: 崔宏江  
-**最后更新**: 2026-01-14
+**文档维护者**: 崔宏江
+**最后更新**: 2026-07-31
