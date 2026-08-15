@@ -147,8 +147,9 @@ class GeneratorTemplateViewSet(CoreModelViewSet):
         role_ids = request.data.get('role_ids') or []
 
         # 1. 菜单（按 path+component 幂等）
+        #    挂在父级目录下时用相对 path，保证前端路由为 /{父路径}/{code}
         menu, menu_created = Menu.objects.get_or_create(
-            path=f'/{code}',
+            path=code if parent_id else f'/{code}',
             component=f'/{code}/index',
             defaults={
                 'title': template.name or code,
