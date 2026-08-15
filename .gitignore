@@ -146,3 +146,6 @@ cython_debug/
 /.idea/vcs.xml
 /.idea/workspace.xml
 **/migrations/
+# 运行产物
+/media/
+.zcode/
