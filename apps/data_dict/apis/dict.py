@@ -13,4 +13,4 @@ class DictViewSet(CoreModelViewSet):
     """
     queryset = Dict.objects.all()
     serializer_class = DictSerializer
-    filter_fields = ['name', 'status', 'id']
+    filter_fields = ['name', 'code', 'status', 'id']

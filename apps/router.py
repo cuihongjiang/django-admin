@@ -14,6 +14,7 @@ from apps.log.apis.operation_log import OperationLogViewSet
 from apps.monitor.apis.monitor import MonitorView
 from apps.system.apis.button import ButtonViewSet
 from apps.system.apis.dept import DeptViewSet
+from apps.system.apis.generator import GeneratorTemplateViewSet
 from apps.system.apis.menu import MenuViewSet
 from apps.system.apis.menu_button import MenuButtonViewSet
 from apps.system.apis.menu_column import MenuColumnFieldViewSet
@@ -33,6 +34,8 @@ api_router.register(r'menu', MenuViewSet, basename='menu')
 api_router.register(r'button', ButtonViewSet, basename='button')
 api_router.register(r'menubutton', MenuButtonViewSet, basename='menubutton')
 api_router.register(r'menucolumnfield', MenuColumnFieldViewSet, basename='menucolumnfield')
+# 低代码生成器
+api_router.register(r'generator', GeneratorTemplateViewSet, basename='generator')
 # 数据字典
 api_router.register(r'dictionary', DictViewSet, basename='dictionary')
 api_router.register(r'dictitem', DictItemViewSet, basename='dictitem')

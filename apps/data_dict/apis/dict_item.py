@@ -2,7 +2,9 @@
 """
 字典项管理视图集
 """
+from rest_framework import serializers
 from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from apps.data_dict.models import Dict, DictItem
 from apps.data_dict.serializers import DictItemSerializer
@@ -19,6 +21,7 @@ class DictItemViewSet(CoreModelViewSet):
     serializer_class = DictItemSerializer
     filter_fields = ['label', 'value', 'dict_id', 'status']
 
+    @extend_schema(parameters=[OpenApiParameter(name='code', type=str, location='query', description='字典编码')])
     @action(detail=False, methods=['get'], url_path='by/code')
     def by_code(self, request):
         """

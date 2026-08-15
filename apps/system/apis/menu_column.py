@@ -3,11 +3,18 @@
 菜单列字段权限管理视图集
 """
 from rest_framework.decorators import action
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema
 
 from apps.system.models import MenuColumnField
 from apps.system.serializers import MenuColumnFieldSerializer
 from utils.web.response_utils import ResponseUtils
 from utils.web.viewsets import CoreModelViewSet
+
+
+class BatchCreateIn(serializers.Serializer):
+    """batch_create 请求体（仅用于接口文档声明）"""
+    batch_info = serializers.ListField(child=serializers.JSONField(), help_text='列字段对象列表')
 
 
 class MenuColumnFieldViewSet(CoreModelViewSet):
@@ -19,6 +26,7 @@ class MenuColumnFieldViewSet(CoreModelViewSet):
     serializer_class = MenuColumnFieldSerializer
     filter_fields = ['name', 'code', 'menu_id']
 
+    @extend_schema(request=BatchCreateIn)
     @action(detail=False, methods=['post'], url_path='batch/create')
     def batch_create(self, request):
         """

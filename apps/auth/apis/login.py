@@ -5,10 +5,12 @@
 import logging
 
 from django.conf import settings
-from rest_framework.viewsets import ViewSet
+from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
+from rest_framework import serializers
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from drf_spectacular.utils import extend_schema
 
 from utils.auth.authentication import blacklist_token, is_token_revoked
 from utils.web.request_util import get_request_ip, save_login_log
@@ -19,12 +21,27 @@ from apps.system.serializers import SchemaOut
 logger = logging.getLogger(__name__)
 
 
-class LoginViewSet(ViewSet):
+class RefreshTokenIn(serializers.Serializer):
+    """刷新 token 请求体（仅用于接口文档声明）"""
+    refreshToken = serializers.CharField(help_text='登录时返回的 refreshToken')
+
+
+class LogoutIn(serializers.Serializer):
+    """退出登录请求体（仅用于接口文档声明）"""
+    refreshToken = serializers.CharField(required=False, help_text='需要一并吊销的 refreshToken')
+
+
+class LoginViewSet(GenericViewSet):
     """
     登录认证视图集
     提供用户登录和 token 刷新功能
     """
-    
+    serializer_class = LoginSerializer
+
+    def get_serializer_class(self):
+        # 各 action 的请求体声明见方法上的 extend_schema
+        return LoginSerializer
+
     def create(self, request, *args, **kwargs):
         """
         用户登录接口
@@ -32,7 +49,7 @@ class LoginViewSet(ViewSet):
         """
         ip = get_request_ip(request)
         # 1. 验证登录数据
-        serializer = LoginSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             username = request.data.get('username')
             logger.warning('登录失败 username=%s ip=%s: %s', username, ip, serializer.errors)
@@ -60,6 +77,7 @@ class LoginViewSet(ViewSet):
             "user": SchemaOut(user).data
         })
 
+    @extend_schema(request=RefreshTokenIn)
     @action(detail=False, methods=["POST"])
     def refresh(self, request, *args, **kwargs):
         """
@@ -120,6 +138,7 @@ class LoginViewSet(ViewSet):
                 status_code=500
             )
 
+    @extend_schema(request=LogoutIn)
     @action(detail=False, methods=["POST"])
     def logout(self, request, *args, **kwargs):
         """

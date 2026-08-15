@@ -2,12 +2,16 @@
 """
 系统监控视图集
 """
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ViewSet
+
 from utils.web.response_utils import ResponseUtils
 from apps.monitor.utils.system import system
 
 
-class MonitorView(ModelViewSet):
+class MonitorView(ViewSet):
+    # 监控是只读接口，限制方法后路由只注册 GET /api/monitor/
+    http_method_names = ['get']
+
     def list(self, request, *args, **kwargs):
         """
         重写 list 方法，忽略默认的数据库查询，返回自定义的系统监控数据。

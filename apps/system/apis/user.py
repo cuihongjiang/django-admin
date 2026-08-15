@@ -4,26 +4,43 @@
 """
 import logging
 
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema
 from apps.system.models import Users
 from apps.system.serializers import SchemaOut, SchemaIn
 from utils.auth.authentication import revoke_user_tokens
-from utils.web.pagination import MyPagination
 from utils.web.response_utils import ResponseUtils
+from utils.web.viewsets import CoreModelViewSet
 from utils.auth.permission import IsAdminOrSuperuser, IsOwnerOrAdmin
 
 logger = logging.getLogger(__name__)
 
 
-class UserViewSet(ModelViewSet):
+class SetPasswordIn(serializers.Serializer):
+    """set_password 请求体（仅用于接口文档声明）"""
+    password = serializers.CharField(help_text='新密码')
+
+
+class ResetPasswordIn(serializers.Serializer):
+    """reset_password 请求体（仅用于接口文档声明）"""
+    new_password = serializers.CharField(required=False, help_text='预留字段，当前实现固定重置为 123456')
+
+
+class SetStatusIn(serializers.Serializer):
+    """set_status 请求体（仅用于接口文档声明）"""
+    status = serializers.BooleanField(help_text='true 启用 / false 禁用')
+
+
+class UserViewSet(CoreModelViewSet):
     """
     用户管理视图集
     提供用户的 CRUD 操作和密码管理
+    继承 CoreModelViewSet 获得统一的分页/全量列表行为，
+    create/update/destroy 因涉及密码处理保持自定义
     """
     queryset = Users.objects.all()
     serializer_class = SchemaIn
-    pagination_class = MyPagination
 
     def get_serializer_class(self):
         """
@@ -74,23 +91,21 @@ class UserViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """删除用户"""
         instance = self.get_object()
+
+        # 不允许删除自己，否则当前会话立即失去管理者身份
+        if instance.id == request.user.id:
+            return ResponseUtils.error(msg="不能删除当前登录账号", code=400, status_code=400)
+
+        # 不允许删除最后一个超级管理员，避免系统失去管理入口
+        if instance.is_superuser and Users.objects.filter(is_superuser=True).count() <= 1:
+            return ResponseUtils.error(msg="不能删除最后一个超级管理员", code=400, status_code=400)
+
         logger.info('删除用户 username=%s operator=%s',
                     instance.username, getattr(request.user, 'username', None))
         self.perform_destroy(instance)
         return ResponseUtils.success(msg="用户删除成功")
 
-    def retrieve(self, request, *args, **kwargs):
-        """获取单个用户"""
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return ResponseUtils.success(data=serializer.data)
-
-    def list(self, request, *args, **kwargs):
-        """获取用户列表"""
-        queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
-        return ResponseUtils.success(data=serializer.data)
-
+    @extend_schema(request=SetPasswordIn)
     @action(detail=True, methods=["POST"], permission_classes=[IsOwnerOrAdmin])
     def set_password(self, request, pk=None):
         """
@@ -116,6 +131,7 @@ class UserViewSet(ModelViewSet):
                     instance.username, getattr(request.user, 'username', None))
         return ResponseUtils.success(msg="密码修改成功，请重新登录")
 
+    @extend_schema(request=ResetPasswordIn)
     @action(detail=True, methods=["PUT"], permission_classes=[IsAdminOrSuperuser])
     def reset_password(self, request, pk=None):
         """
@@ -135,6 +151,7 @@ class UserViewSet(ModelViewSet):
             msg=f"密码已重置为: {default_password}"
         )
 
+    @extend_schema(request=SetStatusIn)
     @action(detail=True, methods=["PUT"], permission_classes=[IsAdminOrSuperuser])
     def set_status(self, request, pk=None):
         """
