@@ -35,6 +35,9 @@ def _pylist(value) -> str:
 
 
 env.filters["pylist"] = _pylist
+env.filters["camel"] = lambda text: ''.join(
+    part.capitalize() for part in str(text).replace('-', '_').split('_') if part
+)
 
 
 def render_template(template_name: str, context: dict) -> str:

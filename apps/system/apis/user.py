@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema
 from apps.system.models import Users
+from apps.system.models.system import MenuButton, MenuColumnField
 from apps.system.serializers import SchemaOut, SchemaIn
 from utils.auth.authentication import revoke_user_tokens
 from utils.web.response_utils import ResponseUtils
@@ -182,3 +183,24 @@ class UserViewSet(CoreModelViewSet):
             return ResponseUtils.success(msg="账号已禁用，全端已下线")
         logger.info('启用账号 username=%s operator=%s', instance.username, operator)
         return ResponseUtils.success(msg="账号已启用")
+
+    @extend_schema(request=None)
+    @action(detail=False, methods=["GET"])
+    def permissions(self, request):
+        """
+        当前用户的按钮/列权限码
+        GET /api/user/permissions/
+        超级管理员返回全部；普通用户返回其角色关联的 MenuButton / MenuColumnField code
+        """
+        user = request.user
+        if user.is_superuser:
+            buttons = MenuButton.objects.values_list('code', flat=True)
+            columns = MenuColumnField.objects.values_list('code', flat=True)
+        else:
+            roles = user.role.all()
+            buttons = MenuButton.objects.filter(role__in=roles).values_list('code', flat=True)
+            columns = MenuColumnField.objects.filter(role__in=roles).values_list('code', flat=True)
+        return ResponseUtils.success(data={
+            "buttons": sorted(set(buttons)),
+            "columns": sorted(set(columns)),
+        })

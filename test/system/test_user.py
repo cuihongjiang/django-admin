@@ -92,3 +92,23 @@ class UserFlowTest(APITestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class UserPermissionsTest(APITestCase):
+
+    def test_superuser_gets_all_codes(self):
+        """超管返回全部按钮/列权限码"""
+        body = self.assertOk(self.client.get('/user/permissions/'), '超管权限')
+        self.assertIsInstance(body['result']['buttons'], list)
+        self.assertGreater(len(body['result']['buttons']), 0, '种子菜单按钮应非空')
+
+    def test_normal_user_shape(self):
+        """普通用户返回结构正确（可为空列表）"""
+        c = Client(username='test', password='123456')
+        try:
+            c.login()
+        except AssertionError:
+            self.skipTest('种子用户 test 密码非默认，跳过')
+        body = self.assertOk(c.get('/user/permissions/'), '普通用户权限')
+        self.assertIn('buttons', body['result'])
+        self.assertIn('columns', body['result'])

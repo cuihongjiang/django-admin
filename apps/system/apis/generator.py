@@ -14,7 +14,7 @@ import logging
 from django.http import HttpResponse
 from rest_framework import serializers
 from rest_framework.decorators import action
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from apps.system.models import GeneratorTemplate, Menu, MenuButton, Role
 from apps.system.serializers import GeneratorTemplateSerializer
@@ -86,32 +86,44 @@ class GeneratorTemplateViewSet(CoreModelViewSet):
             })
         return ResponseUtils.success(data=result)
 
-    @extend_schema(request=None)
+    @extend_schema(request=None, parameters=[
+        OpenApiParameter(name='frontend', type=str, location='query',
+                         description='前端技术栈：vue（默认）/ react')
+    ])
     @action(detail=True, methods=['post'], url_path='code/preview')
     def code_preview(self, request, pk=None):
         """
         预览生成的代码
-        POST /api/generator/{id}/code/preview/
+        POST /api/generator/{id}/code/preview/?frontend=react
         返回 [{path, content}] 文件数组
         """
         template = self.get_object()
+        frontend = request.query_params.get('frontend', 'vue')
+        if frontend not in ('vue', 'react'):
+            return ResponseUtils.error(msg="frontend 仅支持 vue / react", code=400, status_code=400)
         try:
-            files = generate_files(template)
+            files = generate_files(template, frontend)
         except Exception:
             logger.exception('代码生成失败 template_id=%s', template.id)
             return ResponseUtils.error(msg="代码生成失败，请检查模板配置", code=500, status_code=500)
         return ResponseUtils.success(data=files, msg=f"共生成 {len(files)} 个文件")
 
-    @extend_schema(request=None)
+    @extend_schema(request=None, parameters=[
+        OpenApiParameter(name='frontend', type=str, location='query',
+                         description='前端技术栈：vue（默认）/ react')
+    ])
     @action(detail=True, methods=['get'], url_path='code/download')
     def code_download(self, request, pk=None):
         """
         下载生成的代码 zip 包
-        GET /api/generator/{id}/code/download/
+        GET /api/generator/{id}/code/download/?frontend=react
         """
         template = self.get_object()
+        frontend = request.query_params.get('frontend', 'vue')
+        if frontend not in ('vue', 'react'):
+            return ResponseUtils.error(msg="frontend 仅支持 vue / react", code=400, status_code=400)
         try:
-            zip_bytes = generate_zip(template)
+            zip_bytes = generate_zip(template, frontend)
         except Exception:
             logger.exception('代码打包失败 template_id=%s', template.id)
             return ResponseUtils.error(msg="代码打包失败，请检查模板配置", code=500, status_code=500)

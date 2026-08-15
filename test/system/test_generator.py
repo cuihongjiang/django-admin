@@ -65,6 +65,24 @@ class GeneratorFlowTest(APITestCase):
         vue = next(f for f in body['result'] if f['path'].endswith('index.vue'))['content']
         self.assertIn('岗位名称', vue, 'Vue 页面应包含配置的列标题')
 
+    def test_04b_preview_react(self):
+        """frontend=react 生成模块契约目录（index.ts / api.ts / 页面）"""
+        body = self.assertOk(
+            self.client.post(f'/generator/{self.template_id}/code/preview/?frontend=react'),
+            'React 代码预览')
+        paths = [f['path'] for f in body['result']]
+        self.assertEqual(len(paths), 6, 'React 应生成 6 个文件')
+        self.assertIn('frontend/api_test_gen/index.ts', paths)
+        self.assertIn('frontend/api_test_gen/pages/ApiTestGenPage.tsx', paths)
+        page = next(f for f in body['result'] if f['path'].endswith('Page.tsx'))['content']
+        self.assertIn('岗位名称', page)
+        self.assertIn('ApiTestGenRecord', page, '实体类型应带 Record 后缀避免与 UI 组件重名')
+
+    def test_04c_preview_invalid_frontend(self):
+        """非法 frontend 参数返回 400"""
+        resp = self.client.post(f'/generator/{self.template_id}/code/preview/?frontend=angular')
+        self.assertEqual(resp.status_code, 400)
+
     def test_05_download(self):
         resp = self.client.get(f'/generator/{self.template_id}/code/download/')
         self.assertEqual(resp.status_code, 200, '下载应 200')
@@ -72,6 +90,13 @@ class GeneratorFlowTest(APITestCase):
         zf = zipfile.ZipFile(io.BytesIO(resp.content))
         self.assertIsNone(zf.testzip(), 'zip 应完整')
         self.assertEqual(len(zf.namelist()), 5)
+
+    def test_05b_download_react(self):
+        resp = self.client.get(f'/generator/{self.template_id}/code/download/?frontend=react')
+        self.assertEqual(resp.status_code, 200)
+        zf = zipfile.ZipFile(io.BytesIO(resp.content))
+        self.assertIsNone(zf.testzip())
+        self.assertEqual(len(zf.namelist()), 6)
 
     def test_06_menu_create(self):
         body = self.assertOk(self.client.post(f'/generator/{self.template_id}/menu/create/', json={}), '生成菜单')
