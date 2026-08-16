@@ -3,11 +3,10 @@
  *
  * component key 与后端 system_menu.component 字段一一对应
  */
-import { lazy } from 'react'
-
+import { lazyPage } from '@/core/lazy'
 import { defineModule } from '@/core/module'
 
-const [[ Camel ]]Page = lazy(() => import('./pages/[[ Camel ]]Page'))
+const [[ Camel ]]Page = lazyPage(() => import('./pages/[[ Camel ]]Page'))
 
 export default defineModule({
   name: '[[ code ]]',
