@@ -145,7 +145,10 @@ cython_debug/
 /.idea/inspectionProfiles/profiles_settings.xml
 /.idea/vcs.xml
 /.idea/workspace.xml
-**/migrations/
+# 迁移文件必须随代码提交（Django 官方实践）：
+# - schema 变更历史可追溯、各环境一致
+# - 数据修复迁移（RunPython）依赖 git 分发到各环境
+# 注意：migrations/__pycache__ 已由上方 __pycache__/ 规则忽略
 # 运行产物
 /media/
 .zcode/

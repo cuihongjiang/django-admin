@@ -17,6 +17,10 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { Auth } from '@/core/components/auth'
+[% if search_columns %]
+import { SearchInput } from '@/core/components/table-toolbar'
+[% endif %]
+import { TableToolbar, ToolbarCount } from '@/core/components/table-toolbar'
 [% if dict_codes %]
 import { useDict } from '@/core/hooks/use-dict'
 [% endif %]
@@ -38,7 +42,9 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+[% if has_input %]
 import { Input } from '@/components/ui/input'
+[% endif %]
 [% if has_select %]
 import {
   Select,
@@ -72,7 +78,9 @@ type FormValues = z.infer<typeof formSchema>
 
 export default function [[ Camel ]]Page() {
   const queryClient = useQueryClient()
+[% if search_columns %]
   const [search, setSearch] = useState<Record<string, string>>({})
+[% endif %]
   const [page, setPage] = useState(1)
   const [pageSize] = useState(10)
   const [editing, setEditing] = useState<[[ Camel ]]Record | null>(null)
@@ -100,7 +108,7 @@ export default function [[ Camel ]]Page() {
 [% endfor %]
   ]
 
-  const params: Record<string, unknown> = { page, page_size: pageSize, ...search }
+  const params: Record<string, unknown> = { page, page_size: pageSize[% if search_columns %], ...search[% endif %] }
 
   const listQuery = useQuery({
     queryKey: ['[[ code ]]-list', params],
@@ -157,12 +165,11 @@ export default function [[ Camel ]]Page() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 py-4">
+      <Card className="gap-0 py-0">
+        <TableToolbar>
 [% for col in search_columns %]
-          <Input
+          <SearchInput
             placeholder="按[[ col.title ]]搜索"
-            className="w-48"
             value={search['[[ col.field ]]'] ?? ''}
             onChange={(e) => {
               setSearch((s) => ({ ...s, [[ col.field ]]: e.target.value }))
@@ -173,14 +180,11 @@ export default function [[ Camel ]]Page() {
           <Auth code="[[ code ]]:add">
             <Button onClick={openCreate}>
               <Plus className="size-4" />
-              新增[[ name ]]
+              新增
             </Button>
           </Auth>
-          <span className="ml-auto text-sm text-muted-foreground">共 {total} 条</span>
-        </CardContent>
-      </Card>
-
-      <Card>
+          <ToolbarCount total={total} />
+        </TableToolbar>
         <CardContent className="p-0">
           <Table>
             <TableHeader>

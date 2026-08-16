@@ -14,14 +14,18 @@ REDIS_URL = f'redis://:{REDIS_PASSWORD or ""}@{REDIS_HOST}:6379'
 # ================================================= #
 # ************** MySQL数据库配置  ************** #
 # ================================================= #
+# 支持环境变量覆盖（DJANGO_DB_NAME / DJANGO_DB_USER / DJANGO_DB_PASSWORD /
+# DJANGO_DB_HOST / DJANGO_DB_PORT），便于多环境切换而不改动源码
+import os
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'django_admin',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
+        'NAME': os.environ.get('DJANGO_DB_NAME', 'django_admin'),
+        'USER': os.environ.get('DJANGO_DB_USER', 'root'),
+        'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'root'),
+        'HOST': os.environ.get('DJANGO_DB_HOST', '127.0.0.1'),
+        'PORT': os.environ.get('DJANGO_DB_PORT', '3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
         },

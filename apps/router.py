@@ -46,3 +46,9 @@ api_router.register(r'operationlog', OperationLogViewSet, basename='operationlog
 # 文件与监控
 api_router.register(r'file', FileViewSet, basename='file')
 api_router.register(r'monitor', MonitorView, basename='monitor')
+
+# 将下面两行分别加入 apps/router.py（由低代码生成器生成）
+
+from apps.system.apis.notice import NoticeViewSet
+
+api_router.register(r'notice', NoticeViewSet, basename='notice')

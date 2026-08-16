@@ -111,3 +111,17 @@ __all__ = [
     "SchemaIn",
     "SchemaOut",
 ]
+
+
+# -*- coding: utf-8 -*-
+"""
+公告管理序列化器（由低代码生成器生成）
+"""
+from apps.system.models import Notice
+from utils.web.serializers import CoreModelSerializer
+
+
+class NoticeSerializer(CoreModelSerializer):
+    class Meta(CoreModelSerializer.Meta):
+        model = Notice
+        fields = '__all__'

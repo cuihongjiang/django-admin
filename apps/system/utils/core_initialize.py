@@ -37,21 +37,19 @@ class CoreInitialize:
             m2m_dict = {}
             new_data = {}
             for key, value in ele.items():
-                # 判断传的 value 为 list 的多对多进行抽离，使用set 进行更新
+                # 判断传的 value 为 list 的多对多进行抽离，使用 set 进行更新
                 if isinstance(value, list):
                     m2m_dict[key] = value
                 else:
                     new_data[key] = value
             object, _ = obj.objects.get_or_create(id=ele.get("id"), defaults=new_data)
-            for key, m2m in m2m_dict.items():
-                m2m = list(set(m2m))
-                if m2m and len(m2m) > 0 and m2m[0]:
-                    exec(f"""
-if object.{key}:
-    values_list = object.{key}.all().values_list('id', flat=True)
-    values_list = list(set(list(values_list) + {m2m}))
-    object.{key}.set(values_list)
-""")
+            for key, values in m2m_dict.items():
+                values = [value for value in set(values) if value]
+                if values:
+                    relation = getattr(object, key)
+                    # 与已有关联合并（只增不减），保持多次初始化幂等
+                    existing = set(relation.values_list('id', flat=True))
+                    relation.set(existing | set(values))
         logger.info('初始化完成[%s => %s]', obj._meta.label, name)
 
     def run(self):

@@ -49,7 +49,7 @@ class DataPermissionMixin:
         data_range = self._get_user_data_range(self.request.user.id)
         user_dept_id = getattr(self.request.user, 'dept_id', None)
 
-        # 根据数据权限范围应用过滤
+        # 根据数据权限范围应用过滤（与 Role.DATASCOPE_CHOICES 对齐：3=全部数据权限，4=自定数据权限）
         if data_range == 0:  # 仅本人数据
             return queryset.filter(**{self.creator_field: self.request.user.id})
         elif data_range == 1:  # 本部门数据
@@ -61,14 +61,14 @@ class DataPermissionMixin:
                 dept_and_below_ids = get_dept(user_dept_id)
                 return queryset.filter(**{f'{self.data_permission_field}__in': dept_and_below_ids})
             return queryset.none()
-        elif data_range == 3:  # 自定义数据权限
+        elif data_range == 3:  # 全部数据权限
+            return queryset
+        elif data_range == 4:  # 自定数据权限（按角色关联的部门过滤）
             # 获取用户角色关联的部门ID列表
             dept_ids = list(self.request.user.role.values_list('dept__id', flat=True))
             if dept_ids:
                 return queryset.filter(**{f'{self.data_permission_field}__in': dept_ids})
             return queryset.none()
-        elif data_range == 4:  # 所有数据
-            return queryset
         else:  # 默认仅本人数据
             return queryset.filter(**{self.creator_field: self.request.user.id})
 

@@ -31,3 +31,5 @@ __all__ = [
     "SystemConfig",
     "GeneratorTemplate",
 ]
+
+from apps.system.models.notice import Notice

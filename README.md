@@ -504,24 +504,42 @@ View 业务逻辑
 ### 7.1 初始化命令
 
 ```bash
-# 初始化数据（保留已有数据）
+# 初始化数据（幂等补齐，保留已有数据）
 python manage.py init
 
-# 强制重新初始化（删除后新增）
+# 强制重新初始化（先清空再重建；用户表不会被清空，但会重置页面配置的角色关联）
 python manage.py init -y
 
 # 初始化地区数据
 python manage.py init_area
+
+# 导出当前库为初始化数据模块（页面调整菜单/按钮/部门/角色/字典后执行并提交）
+python manage.py dump_init
+
+# 数据一致性校验（检测悬空引用），加 --fix 清理悬空的按钮/列权限行与多对多残留关联
+python manage.py check_data_integrity
 ```
 
-### 7.2 初始化内容
+### 7.2 初始化内容与维护工作流
 
-`apps/system/initialize.py` 包含以下初始化数据：
-- 部门数据（示例公司组织架构）
-- 菜单数据（系统菜单树）
-- 菜单按钮数据（接口权限）
-- 角色数据
-- 字典数据（`apps/data_dict/models.py`）
+初始化数据分两部分维护：
+
+- `apps/system/initialize_data.py`、`apps/data_dict/initialize_data.py`
+  由 `python manage.py dump_init` 生成，**请勿手工编辑**，包含：
+  - 部门数据（示例公司组织架构）
+  - 菜单数据（系统菜单树）
+  - 菜单按钮数据（接口权限）
+  - 权限标识数据
+  - 角色数据
+  - 字典数据（字典 / 字典项）
+- `apps/system/initialize.py` 手工维护超级管理员兜底账号（初始密码 `admin123`，生产环境务必修改）
+
+**维护工作流**：在管理页面上调整了菜单、按钮、部门、角色、字典后，执行
+`python manage.py dump_init` 并提交生成的数据文件，保证 `init -y` 重置后数据不回退。
+后续在初始化数据中新增记录时，请使用 >= 1000 的 id 段，避免与页面自增 id 冲突。
+
+增量数据修复（如存量数据纠错）请走 Django 数据迁移（`RunPython`），
+参考 `apps/system/migrations/0003_fix_permission_data.py`。
 
 ---
 
@@ -540,8 +558,7 @@ uv sync
 # 3. 创建数据库
 mysql -u root -p -e "CREATE DATABASE django_admin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 4. 数据库迁移
-python manage.py makemigrations
+# 4. 数据库迁移（迁移文件随仓库分发，直接执行即可）
 python manage.py migrate
 
 # 5. 初始化数据

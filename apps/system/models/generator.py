@@ -16,7 +16,11 @@ class GeneratorTemplate(CoreModel):
                                   help_text="模型名称，如 Post")
     form_info = models.TextField(verbose_name="表单信息", help_text="表单信息")
     table_info = models.TextField(verbose_name="表格信息", help_text="表格信息")
+    is_new_table = models.BooleanField(default=False, verbose_name="是否新建数据表",
+                                       help_text="开启时不依赖已有模型，按字段配置直接建表")
     has_menu = models.BooleanField(default=False, verbose_name="是否已经生成菜单", help_text="是否已经生成菜单")
+    has_backend = models.BooleanField(default=False, verbose_name="是否已生成后端",
+                                      help_text="是否已经落地后端（数据表 + 接口）")
 
     class Meta:
         db_table = "system_generator_template"

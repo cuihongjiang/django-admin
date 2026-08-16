@@ -19,6 +19,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from apps.system.models import GeneratorTemplate, Menu, MenuButton, Role
 from apps.system.serializers import GeneratorTemplateSerializer
 from utils.generator.builder import build_context, generate_files, generate_zip, to_camel, validate_config
+from utils.generator.materialize import materialize_backend
 from utils.db.models import get_all_models_objects
 from utils.web.response_utils import ResponseUtils
 from utils.web.viewsets import CoreModelViewSet
@@ -48,6 +49,8 @@ class GeneratorTemplateViewSet(CoreModelViewSet):
             request.data.get('table_info', ''),
             request.data.get('form_info', ''),
         )
+        if request.data.get('is_new_table') and not (request.data.get('form_info') or []):
+            raise ValueError('新建数据表模式至少需要配置一个表单字段')
 
     def create(self, request, *args, **kwargs):
         try:
@@ -130,6 +133,35 @@ class GeneratorTemplateViewSet(CoreModelViewSet):
         response = HttpResponse(zip_bytes, content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{template.code}.zip"'
         return response
+
+    @extend_schema(request=None)
+    @action(detail=True, methods=['post'], url_path='backend/create')
+    def backend_create(self, request, pk=None):
+        """
+        落地后端：建数据表 + 写入/复用 序列化器/视图集/路由（幂等，无需人工 copy）
+        POST /api/generator/{id}/backend/create/
+
+        - 已有模型的模板：确认模型与路由存在后直接复用
+        - 新建数据表的模板：schema_editor 直接建表，代码文件存在即复用
+        - 文件写入后开发服务器自动重载生效，生产环境需重启
+        """
+        template = self.get_object()
+        try:
+            report = materialize_backend(template)
+        except ValueError as e:
+            return ResponseUtils.error(msg=str(e), code=400, status_code=400)
+        except Exception:
+            logger.exception('后端落地失败 template_id=%s', template.id)
+            return ResponseUtils.error(msg='后端落地失败，请检查模板配置', code=500, status_code=500)
+
+        if not template.has_backend:
+            template.has_backend = True
+            template.save(update_fields=['has_backend'])
+
+        reused = all(v != 'created' for v in report.values())
+        msg = ('后端已存在，全部复用现有资源' if reused
+               else '数据表与后端接口已就绪（开发服务器自动重载后生效，生产环境需重启）')
+        return ResponseUtils.success(data=report, msg=msg)
 
     @extend_schema(request=MenuCreateIn)
     @action(detail=True, methods=['post'], url_path='menu/create')

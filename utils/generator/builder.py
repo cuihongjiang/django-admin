@@ -91,6 +91,22 @@ def _derive_field(f: dict) -> dict:
     return f
 
 
+def _model_decl(f: dict) -> str:
+    """表单字段 → Django 模型字段声明代码（用于新建数据表）"""
+    title = str(f.get('title') or f.get('field') or '').replace('"', '\\"')
+    common = f'verbose_name="{title}", help_text="{title}", null=True, blank=True'
+    component = f.get('component') or 'input'
+    if component == 'textarea':
+        return f'models.TextField({common})'
+    if component == 'number':
+        return f'models.IntegerField(default=0, {common})'
+    if component == 'select':
+        return f'models.CharField(max_length=64, {common})'
+    if component == 'switch':
+        return f'models.BooleanField(default=False, verbose_name="{title}", help_text="{title}")'
+    return f'models.CharField(max_length=255, {common})'
+
+
 def build_context(template) -> dict:
     """
     将 GeneratorTemplate 的配置转换为各模板渲染上下文
@@ -113,7 +129,6 @@ def build_context(template) -> dict:
     form_defaults = '{' + ', '.join(
         f"{f['field']}: {f['default_value']}" for f in form_info
     ) + '}'
-
     # 列表列类型优先取同名表单字段的推导结果（switch→boolean 等），否则 string
     form_ts = {f['field']: f['ts_type'] for f in form_info}
 
@@ -136,7 +151,7 @@ def build_context(template) -> dict:
             seen.add(f['field'])
             entity_fields.append({'field': f['field'], 'ts_type': f.get('ts_type', 'string')})
 
-    return {
+    context = {
         'code': code,
         'name': template.name or code,
         'app_label': template.app_label or 'system',
@@ -144,6 +159,7 @@ def build_context(template) -> dict:
         'camel': camel,
         # 模板中 PascalCase 类型名使用（与 camel 同值，键名区分大小写）
         'Camel': camel,
+        'is_new_table': bool(getattr(template, 'is_new_table', False)),
         'search_columns': search_columns,
         'entity_fields': entity_fields,
         'list_columns': list_columns,
@@ -152,17 +168,28 @@ def build_context(template) -> dict:
         'dict_codes': dict_codes,
         'has_select': any(f.get('component') == 'select' for f in form_info),
         'has_switch': any(f.get('component') == 'switch' for f in form_info),
+        'has_input': any(f.get('component') != 'select' and f.get('component') != 'switch'
+                         for f in form_info),
         'form_defaults': form_defaults,
+        # 新建数据表模式：模型文件模板所需的建表信息
+        'db_table': f'system_{code}',
+        'model_fields': [
+            {'field': f['field'], 'decl': _model_decl(f)} for f in form_info
+        ],
         # Excel 导入导出字段 = 表格展示列；精确过滤字段 = 参与搜索的列
         'export_fields': [c['field'] for c in list_columns],
         'search_fields': [c['field'] for c in search_columns],
     }
+    return context
 
 
 def generate_files(template, frontend: str = 'vue') -> list:
     """渲染全部文件，返回 [{path, content}]；frontend 取 'vue' 或 'react'"""
-    mapping = REACT_FILE_MAPPING if frontend == 'react' else VUE_FILE_MAPPING
+    mapping = list(REACT_FILE_MAPPING if frontend == 'react' else VUE_FILE_MAPPING)
     context = build_context(template)
+    # 新建数据表模式额外产出模型文件（放在后端文件首位）
+    if context['is_new_table']:
+        mapping.insert(3, ('drf_model.tpl', 'backend/model_[[code]].py'))
     files = []
     for tpl_name, out_path in mapping:
         content = render_template(tpl_name, context)
