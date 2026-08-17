@@ -30,6 +30,12 @@ class UserFlowTest(APITestCase):
         UserFlowTest.user_id = body['result']['id']
         self.assertEqual(body['result']['username'], self.username)
 
+    def test_01b_login_with_initial_password(self):
+        """创建时传入的密码即时生效（不再被忽略回落默认 123456）"""
+        c = Client(username=self.username, password='Init123456')
+        body = c.login()
+        self.assertEqual(body['result']['user']['username'], self.username)
+
     def test_02_list_and_detail(self):
         body = self.assertOk(self.client.get('/user/'), '用户列表')
         usernames = [u['username'] for u in body['result']]

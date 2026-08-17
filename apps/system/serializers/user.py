@@ -14,9 +14,10 @@ class SchemaIn(serializers.ModelSerializer):
 
     class Meta:
         model = Users
-        fields = ["username", "email", "mobile", "dept_id", "post", "role"]
+        fields = ["username", "password", "email", "mobile", "dept_id", "post", "role"]
         extra_kwargs = {
-            "password": {"write_only": True},
+            # password 可不传：创建时缺省 123456；更新时缺省不改密码（改密走 set_password 接口）
+            "password": {"write_only": True, "required": False},
         }
 
     def create(self, validated_data):
@@ -27,6 +28,10 @@ class SchemaIn(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
+        # 更新携带密码时必须哈希，禁止明文落库
+        password = validated_data.pop("password", None)
+        if password:
+            instance.set_password(password)
         for attr, value in validated_data.items():
             if attr == "post":
                 instance.post.set(value)
