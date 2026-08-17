@@ -7,17 +7,20 @@
 from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
 
+from apps.system.utils.permissions import DataPermissionMixin
 from utils.web.pagination import MyPagination
 from utils.web.response_utils import ResponseUtils
 
 
-class CoreModelViewSet(ModelViewSet):
+class CoreModelViewSet(DataPermissionMixin, ModelViewSet):
     """
     标准化 ModelViewSet 基类
     - 统一 ResponseUtils 响应格式
     - filter_fields 声明查询参数精确过滤字段
     - list 带 page 参数时分页，否则返回全量
     - 创建/更新时自动填充审计字段（creator/modifier/belong_dept）
+    - 默认启用行级数据权限（按角色 data_range 过滤查询集），全局配置类
+      ViewSet 应设置 apply_data_permission = False 关闭
     """
     pagination_class = MyPagination
     filter_fields = []

@@ -18,7 +18,7 @@ def media_file_name(instance, filename):
 class File(CoreModel):
     name = models.CharField(max_length=255, null=True, blank=True, verbose_name="实际名称", help_text="实际名称")
     save_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="存储名称", help_text="存储名称")
-    url = models.FileField(upload_to=media_file_name)
+    url = models.FileField(upload_to=media_file_name, max_length=255, verbose_name="文件地址", help_text="文件地址")
     size = models.BigIntegerField(null=True, blank=True, verbose_name="大小", help_text="大小")
     md5sum = models.CharField(max_length=36, blank=True, verbose_name="文件md5", help_text="文件md5")
 

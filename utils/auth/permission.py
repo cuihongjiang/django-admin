@@ -16,18 +16,50 @@ logger = logging.getLogger(__name__)
 class WhitelistOrIsAuthenticated(BasePermission):
     """
     允许访问的白名单路径，或者要求用户已认证。
-    支持前缀匹配和 DEMO 模式。
+
+    白名单来源 = settings.WHITE_LIST + 接口白名单表（system_api_white_list，页面可管理），
+    均为前缀匹配；表条目配置了 method 时仅放行对应方法（HEAD/OPTIONS 视同 GET）。
+    结果缓存 300s，白名单表写入时清理。支持 DEMO 模式（表驱动开关）。
     """
+    # 请求方法 -> MenuButton/ApiWhiteList 同款 METHOD_CHOICES
+    METHOD_MAP = {'GET': 0, 'HEAD': 0, 'OPTIONS': 0, 'POST': 1, 'PUT': 2, 'DELETE': 3}
+    WHITE_LIST_CACHE_KEY = 'api_white_list'
+    WHITE_LIST_CACHE_TTL = 300
+
+    @classmethod
+    def get_whitelist_entries(cls):
+        """
+        白名单条目集合 [(path, method_int_or_None), ...]，带缓存
+        """
+        from django.core.cache import cache
+
+        try:
+            entries = cache.get(cls.WHITE_LIST_CACHE_KEY)
+            if entries is None:
+                from apps.system.models import ApiWhiteList
+                rows = ApiWhiteList.objects.exclude(url='').values_list('url', 'method')
+                entries = [(path, None) for path in getattr(settings, 'WHITE_LIST', []) if path]
+                entries += [(path, method) for path, method in rows]
+                cache.set(cls.WHITE_LIST_CACHE_KEY, entries, cls.WHITE_LIST_CACHE_TTL)
+            return entries
+        except Exception:
+            logger.warning('读取接口白名单表失败，仅使用 settings 白名单', exc_info=True)
+            return [(path, None) for path in getattr(settings, 'WHITE_LIST', []) if path]
+
     def has_permission(self, request, view):
-        # 1. DEMO 模式检查：允许所有只读请求
-        if getattr(settings, 'DEMO', False) and request.method in ('GET', 'HEAD', 'OPTIONS'):
+        # 1. DEMO 模式检查（表驱动开关）：允许所有只读请求
+        from apps.system.utils.system_config import get_system_config
+        if get_system_config('DEMO', getattr(settings, 'DEMO', False)) and \
+                request.method in ('GET', 'HEAD', 'OPTIONS'):
             return True
 
-        # 2. 白名单检查：支持前缀匹配
+        # 2. 白名单检查：前缀匹配，表条目可限定方法
         path = request.path_info
-        whitelist = getattr(settings, 'WHITE_LIST', [])
-        if any(path.startswith(whitelist_path) for whitelist_path in whitelist):
-            return True
+        method_int = self.METHOD_MAP.get(request.method)
+        for whitelist_path, whitelist_method in self.get_whitelist_entries():
+            if path.startswith(whitelist_path) and (whitelist_method is None or
+                                                    whitelist_method == method_int):
+                return True
 
         # 3. 用户认证检查
         user = request.user

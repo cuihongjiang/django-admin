@@ -6,7 +6,10 @@ import json
 
 from rest_framework import serializers
 
-from apps.system.models import Button, Dept, Menu, MenuButton, MenuColumnField, Post, Role, GeneratorTemplate
+from apps.system.models import (
+    ApiWhiteList, Button, Dept, GeneratorTemplate, Menu, MenuButton, MenuColumnField, Post, Role,
+    SystemConfig,
+)
 from utils.web.serializers import CoreModelSerializer
 
 # 用户读写序列化器较特殊（读写分离 + 自定义 create/update），单独成文件后在此汇总导出
@@ -99,6 +102,18 @@ class GeneratorTemplateSerializer(CoreModelSerializer):
         fields = '__all__'
 
 
+class ApiWhiteListSerializer(CoreModelSerializer):
+    class Meta(CoreModelSerializer.Meta):
+        model = ApiWhiteList
+        fields = '__all__'
+
+
+class SystemConfigSerializer(CoreModelSerializer):
+    class Meta(CoreModelSerializer.Meta):
+        model = SystemConfig
+        fields = '__all__'
+
+
 __all__ = [
     "DeptSerializer",
     "PostSerializer",
@@ -107,6 +122,8 @@ __all__ = [
     "MenuButtonSerializer",
     "MenuColumnFieldSerializer",
     "ButtonSerializer",
+    "ApiWhiteListSerializer",
+    "SystemConfigSerializer",
     "GeneratorTemplateSerializer",
     "SchemaIn",
     "SchemaOut",

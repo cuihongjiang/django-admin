@@ -19,6 +19,8 @@ class RoleViewSet(CoreModelViewSet):
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
     filter_fields = ['name', 'status', 'id']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     @action(detail=False, methods=['get'], url_path='list/menu')
     def list_menu(self, request):

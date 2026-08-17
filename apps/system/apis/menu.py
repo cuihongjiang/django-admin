@@ -19,6 +19,8 @@ class MenuViewSet(CoreModelViewSet):
     queryset = Menu.objects.all()
     serializer_class = MenuSerializer
     filter_fields = ['title', 'status', 'id']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     def list(self, request, *args, **kwargs):
         """菜单列表直接返回树形结构"""

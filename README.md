@@ -461,9 +461,23 @@ URL 前缀：`/api/`
 | 字典项 | /api/dictitem/by/code/ | GET | 按字典编码查字典项 |
 | 文件 | /api/file/upload/ | POST | 上传文件（md5 秒传） |
 | 文件 | /api/file/{id}/download/ | GET | 下载文件 |
+| 接口白名单 | /api/apiwhitelist/ | GET/POST/PUT/DELETE | 白名单 CRUD（与 settings.WHITE_LIST 叠加生效，前缀匹配，method 可选） |
+| 系统配置 | /api/systemconfig/ | GET/POST/PUT/DELETE | 配置 CRUD（key/value/status，表驱动开关） |
 | 监控 | /api/monitor/ | GET | 服务器监控 |
 
 > 所有资源均为标准 DRF ViewSet，同时提供 `all/list`（不分页全量）。列表接口带 `page` 参数时分页，否则返回全量。
+
+**行级数据权限**：业务表 ViewSet 默认启用 `DataPermissionMixin`（按角色 `data_range`
+过滤：0 仅本人 / 1 本部门 / 2 本部门及以下 / 3 全部 / 4 自定-按角色关联部门），
+全局配置类接口（菜单/角色/字典等）通过 `apply_data_permission = False` 排除。
+
+**表驱动开关**：`DEMO`（演示模式只读放行）、`LOGIN_ANALYSIS_LOG`（登录 IP 解析）等
+运行时开关优先读 `system_config` 表（经 `get_system_config` 带缓存读取，改表即时生效），
+未配置时回退 `settings` 默认值。
+
+**生成器模型说明**：代码生成器产出的模型为 `managed = False`（表由生成器通过
+schema_editor 直接创建），全新环境执行 `migrate` 不会创建这些表，需要跑一次生成器
+的"落地后端"或手工建表。
 
 ---
 

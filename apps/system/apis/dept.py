@@ -19,6 +19,8 @@ class DeptViewSet(CoreModelViewSet):
     queryset = Dept.objects.all()
     serializer_class = DeptSerializer
     filter_fields = ['name', 'status', 'id']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     @action(detail=False, methods=['get'], url_path='list/tree')
     def list_tree(self, request):

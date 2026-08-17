@@ -20,6 +20,8 @@ class DictItemViewSet(CoreModelViewSet):
     queryset = DictItem.objects.all()
     serializer_class = DictItemSerializer
     filter_fields = ['label', 'value', 'dict_id', 'status']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     @extend_schema(parameters=[OpenApiParameter(name='code', type=str, location='query', description='字典编码')])
     @action(detail=False, methods=['get'], url_path='by/code')

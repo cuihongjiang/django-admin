@@ -19,6 +19,8 @@ class CategoryDictViewSet(CoreModelViewSet):
     queryset = CategoryDict.objects.all()
     serializer_class = CategoryDictSerializer
     filter_fields = ['label', 'value', 'code']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     @action(detail=False, methods=['get'], url_path='list/tree')
     def list_tree(self, request):

@@ -14,3 +14,5 @@ class ButtonViewSet(CoreModelViewSet):
     queryset = Button.objects.all()
     serializer_class = ButtonSerializer
     filter_fields = ['name', 'code', 'id']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False

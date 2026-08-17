@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 数据字典域模型：字典 / 字典项 / 分类字典
+
+表名说明：项目全局约定业务表统一使用 system_ 前缀（与所属应用无关，
+如 log 域的 system_operation_log、file 域的 system_file），本域沿用该约定。
 """
 from django.db import models
 

@@ -193,7 +193,9 @@ def get_ip_analysis(ip):
         "latitude": ""
     }
     if ip != 'unknown' and ip:
-        if getattr(settings, 'ENABLE_LOGIN_ANALYSIS_LOG', True):
+        # 表驱动开关（SystemConfig key=LOGIN_ANALYSIS_LOG，对应 settings.ENABLE_LOGIN_ANALYSIS_LOG）
+        from apps.system.utils.system_config import get_system_config
+        if get_system_config('LOGIN_ANALYSIS_LOG', getattr(settings, 'ENABLE_LOGIN_ANALYSIS_LOG', True)):
             res = requests.get(url='https://ip.django-vue-admin.com/ip/analysis', params={"ip": ip}, verify=False)
 
             if res.status_code == 200:

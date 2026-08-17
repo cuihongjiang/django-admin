@@ -15,7 +15,8 @@ class ApiWhiteList(CoreModel):
         (2, "PUT"),
         (3, "DELETE"),
     )
-    method = models.IntegerField(default=0, verbose_name="接口请求方法", null=True, blank=True,
+    # method 留空（None）放行全部方法，配置了则仅放行对应方法
+    method = models.IntegerField(default=None, verbose_name="接口请求方法", null=True, blank=True,
                                  help_text="接口请求方法")
     enable_datasource = models.BooleanField(default=True, verbose_name="激活数据权限", help_text="激活数据权限",
                                             blank=True)
@@ -32,7 +33,8 @@ class SystemConfig(CoreModel):
                                db_constraint=False, null=True, blank=True, help_text="父级")
     title = models.CharField(max_length=50, verbose_name="标题", help_text="标题")
     key = models.CharField(max_length=20, verbose_name="键", help_text="键")
-    value = models.JSONField(max_length=100, verbose_name="值", help_text="值", null=True, blank=True)
+    # value 为 JSON 值；JSONField 不支持长度限制（MySQL 列为 json 类型），勿加 max_length
+    value = models.JSONField(verbose_name="值", help_text="值", null=True, blank=True)
     status = models.BooleanField(default=False, verbose_name="启用状态", help_text="启用状态")
     data_options = models.JSONField(verbose_name="数据options", help_text="数据options", null=True, blank=True)
     FORM_ITEM_TYPE_LIST = (

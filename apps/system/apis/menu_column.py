@@ -25,6 +25,8 @@ class MenuColumnFieldViewSet(CoreModelViewSet):
     queryset = MenuColumnField.objects.all()
     serializer_class = MenuColumnFieldSerializer
     filter_fields = ['name', 'code', 'menu_id']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     @extend_schema(request=BatchCreateIn)
     @action(detail=False, methods=['post'], url_path='batch/create')

@@ -40,6 +40,8 @@ class UserViewSet(CoreModelViewSet):
     继承 CoreModelViewSet 获得统一的分页/全量列表行为，
     create/update/destroy 因涉及密码处理保持自定义
     """
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
     queryset = Users.objects.all()
     serializer_class = SchemaIn
 

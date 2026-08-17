@@ -36,6 +36,9 @@ class Users(AbstractUser, CoreModel):
     first_name = models.CharField(max_length=150, blank=True, null=True)
     last_name = models.CharField(max_length=150, blank=True, null=True)
     home_path = models.CharField(max_length=150, blank=True, null=True)
+    # 项目使用自建 Role 体系做权限，关闭 Django 内置的分组/权限关联（关联表由迁移删除）
+    groups = None
+    user_permissions = None
 
     class Meta:
         db_table = "system_users"

@@ -42,6 +42,8 @@ class GeneratorTemplateViewSet(CoreModelViewSet):
     queryset = GeneratorTemplate.objects.all()
     serializer_class = GeneratorTemplateSerializer
     filter_fields = ['name', 'code', 'has_menu']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
 
     def _validate(self, request):
         """创建/更新前校验配置 JSON 结构"""

@@ -30,7 +30,13 @@ def get_dept(dept_id: int, dept_all_list=None, dept_list=None):
 class DataPermissionMixin:
     """
     用于 ViewSet 的 Mixin，自动根据用户的数据权限范围过滤查询集。
+
+    通过类属性控制：
+    - apply_data_permission = False  跳过数据权限过滤（菜单/角色/字典等全局配置表应关闭）
+    - data_permission_field          数据归属部门字段名，默认 belong_dept
+    - creator_field                  创建人字段名，默认 creator_id
     """
+    apply_data_permission = True
     data_permission_field = 'belong_dept'  # 默认的部门字段名
     creator_field = 'creator_id'           # 默认的创建者字段名
 
@@ -40,6 +46,10 @@ class DataPermissionMixin:
         """
         # 获取原始查询集
         queryset = super().get_queryset()
+
+        # 全局配置类数据不做行级数据权限
+        if not self.apply_data_permission:
+            return queryset
 
         # 超级管理员不过滤
         if self.request.user.is_superuser:

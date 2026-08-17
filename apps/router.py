@@ -20,7 +20,9 @@ from apps.system.apis.menu_button import MenuButtonViewSet
 from apps.system.apis.menu_column import MenuColumnFieldViewSet
 from apps.system.apis.post import PostViewSet
 from apps.system.apis.role import RoleViewSet
+from apps.system.apis.system_config import SystemConfigViewSet
 from apps.system.apis.user import UserViewSet
+from apps.system.apis.white_list import ApiWhiteListViewSet
 
 api_router = DefaultRouter()
 # 认证
@@ -34,6 +36,9 @@ api_router.register(r'menu', MenuViewSet, basename='menu')
 api_router.register(r'button', ButtonViewSet, basename='button')
 api_router.register(r'menubutton', MenuButtonViewSet, basename='menubutton')
 api_router.register(r'menucolumnfield', MenuColumnFieldViewSet, basename='menucolumnfield')
+# 接口白名单 / 系统配置（表驱动，页面可管理）
+api_router.register(r'apiwhitelist', ApiWhiteListViewSet, basename='apiwhitelist')
+api_router.register(r'systemconfig', SystemConfigViewSet, basename='systemconfig')
 # 低代码生成器
 api_router.register(r'generator', GeneratorTemplateViewSet, basename='generator')
 # 数据字典

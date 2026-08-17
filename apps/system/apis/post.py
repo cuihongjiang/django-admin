@@ -20,6 +20,8 @@ class PostViewSet(CoreModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     filter_fields = ['name', 'code', 'status', 'id']
+    # 全局配置类数据，不做行级数据权限过滤
+    apply_data_permission = False
     # all/import 需要 multipart 上传 Excel，全局默认只开了 JSONParser
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
