@@ -21,9 +21,6 @@ class Notice(CoreModel):
     status = models.BooleanField(default=False, verbose_name="状态", help_text="状态")
 
 
-    sort = models.IntegerField(default=0, verbose_name="排序", help_text="排序", null=True, blank=True)
-
-
     class Meta:
         db_table = "system_notice"
         managed = False
